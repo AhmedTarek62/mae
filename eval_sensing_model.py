@@ -5,7 +5,7 @@ import torch
 from dataset_classes.csi_sensing import CSISensingDataset
 from sklearn.metrics import confusion_matrix
 from torch.utils.data import DataLoader
-import models_vit
+import mae.models.models_vit as models_vit
 import matplotlib.pyplot as plt
 import seaborn as sns
 from tqdm import tqdm

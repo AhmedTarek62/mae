@@ -29,7 +29,7 @@ from timm.loss import LabelSmoothingCrossEntropy, SoftTargetCrossEntropy
 from timm.data.mixup import Mixup
 from sklearn.model_selection import StratifiedShuffleSplit
 
-import models_vit
+import mae.models.models_vit as models_vit
 
 from engine_finetune import train_one_epoch, evaluate
 from dataset_classes.radio_sig import RadioSignal

@@ -4,7 +4,7 @@ from torch.utils.data import DataLoader
 
 from dataset_classes.radio_sig import RadioSignal
 import torch
-import models_vit
+import mae.models.models_vit as models_vit
 import numpy as np
 from sklearn.model_selection import StratifiedShuffleSplit
 from sklearn.metrics import confusion_matrix

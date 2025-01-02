@@ -27,7 +27,7 @@ import util.lr_decay as lrd
 import util.misc as misc
 from util.misc import NativeScalerWithGradNormCount as NativeScaler
 
-import models_segmentation
+import mae.models.models_segmentation as models_segmentation
 
 from engine_finetune_segmentation import train_one_epoch, evaluate
 from dataset_classes.segmentation_dataset import SegmentationDataset

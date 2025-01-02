@@ -29,7 +29,7 @@ from util.misc import NativeScalerWithGradNormCount as NativeScaler
 from timm.layers import trunc_normal_
 from timm.data.mixup import Mixup
 
-import models_vit
+import mae.models.models_vit as models_vit
 import math
 
 from engine_finetune_regression import train_one_epoch, evaluate

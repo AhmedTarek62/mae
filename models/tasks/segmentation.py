@@ -20,7 +20,9 @@ from util.pos_embed import get_2d_sincos_pos_embed
 
 
 class SegmentationViT(nn.Module):
-    """ Masked Autoencoder with VisionTransformer backbone
+    """ Masked Autoencoder with VisionTransformer backbone.
+    This class is a custom implementation of a Vision Transformer (ViT) tailored for segmentation tasks. 
+    It incorporates components from Masked Autoencoders (MAE) to handle image patches and reconstruction tasks.
     """
 
     def __init__(self, img_size=224, patch_size=16, in_chans=1,
@@ -31,32 +33,45 @@ class SegmentationViT(nn.Module):
 
         # --------------------------------------------------------------------------
         # MAE encoder specifics
+
+        ## 1. Patch Embedding
         self.patch_embed = PatchEmbed(img_size, patch_size, in_chans, embed_dim)
         num_patches = self.patch_embed.num_patches
 
+        ## 2. Class tokenization (for the entire image)
         self.cls_token = nn.Parameter(torch.zeros(1, 1, embed_dim))
+
+        ## 3. Position Embedding
         self.pos_embed = nn.Parameter(torch.zeros(1, num_patches + 1, embed_dim),
                                       requires_grad=False)  # fixed sin-cos embedding
 
+        ## 4. Transformer Blocks
         self.blocks = nn.ModuleList([
             Block(embed_dim, num_heads, mlp_ratio, qkv_bias=True) for _ in range(depth)])
+        
+        # 5. Normalization
         self.norm = norm_layer(embed_dim)
         # --------------------------------------------------------------------------
 
         # --------------------------------------------------------------------------
         # MAE decoder specifics
+
+        ## 1. Decoder Embedding (from encoder embedding dimenssion --> decoder embeddnig dimension)
         self.decoder_embed = nn.Linear(embed_dim, decoder_embed_dim, bias=True)
 
-        # self.mask_token = nn.Parameter(torch.zeros(1, 1, decoder_embed_dim))
-
+        ## 2. Decoder Position Embedding
         self.decoder_pos_embed = nn.Parameter(torch.zeros(1, num_patches + 1, decoder_embed_dim),
                                               requires_grad=False)  # fixed sin-cos embedding
 
+        ## 3. Transformer Blocks
         self.decoder_blocks = nn.ModuleList([
             Block(decoder_embed_dim, decoder_num_heads, mlp_ratio, qkv_bias=True) for _ in range(decoder_depth)])
 
+        ## 4. Normalization
         self.decoder_norm = norm_layer(decoder_embed_dim)
-        self.decoder_pred = nn.Linear(decoder_embed_dim, patch_size ** 2 * out_chans, bias=True)  # decoder to patch
+
+        ## 5. Prediction Head (decoder to patch)
+        self.decoder_pred = nn.Linear(decoder_embed_dim, patch_size ** 2 * out_chans, bias=True)
         # --------------------------------------------------------------------------
 
         self.initialize_weights()
@@ -174,32 +189,3 @@ class SegmentationViT(nn.Module):
         for param in self.patch_embed.proj.parameters():
             param.requires_grad = True
 
-
-def seg_vit_small_patch16_dec512d8b(**kwargs):
-    model = SegmentationViT(
-        patch_size=16, embed_dim=512, in_chans=1, depth=12, num_heads=8,
-        decoder_embed_dim=256, decoder_depth=2, decoder_num_heads=16,
-        mlp_ratio=4, norm_layer=partial(nn.LayerNorm, eps=1e-6), **kwargs)
-    return model
-
-
-def seg_vit_medium_patch16_dec512d8b(**kwargs):
-    model = SegmentationViT(
-        patch_size=16, embed_dim=768, in_chans=1, depth=12, num_heads=12,
-        decoder_embed_dim=512, decoder_depth=2, decoder_num_heads=16,
-        mlp_ratio=4, norm_layer=partial(nn.LayerNorm, eps=1e-6), **kwargs)
-    return model
-
-
-def seg_vit_large_patch16_dec512d8b(**kwargs):
-    model = SegmentationViT(
-        patch_size=16, embed_dim=1024, in_chans=1, depth=24, num_heads=16,
-        decoder_embed_dim=512, decoder_depth=2, decoder_num_heads=16,
-        mlp_ratio=4, norm_layer=partial(nn.LayerNorm, eps=1e-6), **kwargs)
-    return model
-
-
-# set recommended archs
-seg_vit_small_patch16 = seg_vit_small_patch16_dec512d8b  # decoder: 512 dim, 8 blocks
-seg_vit_medium_patch16 = seg_vit_medium_patch16_dec512d8b  # decoder: 512 dim, 8 blocks
-seg_vit_large_patch16 = seg_vit_large_patch16_dec512d8b  # decoder: 512 dim, 8 blocks

@@ -1,6 +1,6 @@
 from tqdm import tqdm
 
-import models_vit
+import mae.models.models_vit as models_vit
 from dataset_classes.positioning_nr import PositioningNR
 import torch
 import numpy as np

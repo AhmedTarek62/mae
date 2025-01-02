@@ -34,7 +34,7 @@ from util.misc import NativeScalerWithGradNormCount as NativeScaler
 from util.lars import LARS
 from util.crop import RandomResizedCrop
 
-import models_vit
+import mae.models.models_vit as models_vit
 
 from engine_finetune import train_one_epoch, evaluate
 

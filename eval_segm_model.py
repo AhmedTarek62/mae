@@ -6,7 +6,7 @@ import torch
 from dataset_classes.segmentation_dataset import SegmentationDataset
 from sklearn.metrics import confusion_matrix
 from torch.utils.data import DataLoader
-import models_segmentation
+import mae.models.models_segmentation as models_segmentation
 import matplotlib.pyplot as plt
 import seaborn as sns
 from tqdm import tqdm

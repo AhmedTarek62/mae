@@ -31,7 +31,7 @@ import util.misc as misc
 from util.pos_embed import interpolate_pos_embed
 from util.misc import NativeScalerWithGradNormCount as NativeScaler
 
-import models_vit
+import mae.models.models_vit as models_vit
 
 from engine_finetune import train_one_epoch, evaluate
 from dataset_classes.segmentation_dataset import SegmentationDataset

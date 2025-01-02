@@ -6,7 +6,7 @@ import torch
 import torch.nn.functional as F
 from dataset_classes.csi_sensing import CSISensingDataset
 from torch.utils.data import DataLoader
-import models_vit
+import mae.models.models_vit as models_vit
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 import numpy as np

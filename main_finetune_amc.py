@@ -28,7 +28,7 @@ from timm.layers import trunc_normal_
 from timm.loss import LabelSmoothingCrossEntropy, SoftTargetCrossEntropy
 from timm.data.mixup import Mixup
 
-import models_vit
+import mae.models.models_vit as models_vit
 
 from engine_finetune import train_one_epoch, evaluate
 from dataset_classes.amc_images import AMCImages
