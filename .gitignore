@@ -1,0 +1,11 @@
+
+
+# Ignore Python bytecode
+*.pyc
+__pycache__/
+
+# Ignore files
+*.log
+*.gz
+*.pth
+*.h5
