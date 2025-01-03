@@ -1,21 +1,21 @@
-experiment_name: exp0_seg                   # Set a name for your experiment
+experiment_name: exp1_sensing                   # Set a name for your experiment
 
 # Task
-task: 'segmenation'  # Options: ['segmenation', 'sensing', 'custom']
-data_path: '/home/elsayedmohammed/datasets/segmenation_dataset' # specifiy the datset path
+task: 'sensing'  # Options: ['segmenation', 'sensing', 'custom']
+data_path: '/home/elsayedmohammed/datasets/sensing_dataset' # specifiy the datset path
 
 # Base Model
 base_arch: seg_vit_medium_patch16 # Options: ['seg_vit_small_patch16', 'seg_vit_medium_patch16', 'seg_vit_large_patch16']
 base_model_path: '/home/elsayedmohammed/vit-models/pretrained_medium_75.pth' # Specifiy the path of base model in your system
 
 # Model parameters
-num_classes: 3                          # Number of target classes for the model
+num_classes: 6                          # Number of target classes for the model
 input_size: 224                         # Size of input images (height/width)
 drop_path: 0.1                          # Drop path rate for regularization
 
 # Training parameters
 batch_size: 64                          # Batch size for training
-epochs: 20                              # Number of training epochs
+epochs: 50                              # Number of training epochs
 save_every: 5                          # Save checkpoint every N epochs
 
 # Optimizer parameters
@@ -35,6 +35,3 @@ pin_mem: true                           # Use pinned memory for data loading
 
 # Seed for reproducibility
 seed: 0                                 # Random seed
-
-
-

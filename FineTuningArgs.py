@@ -86,13 +86,17 @@ class FineTuningArgs:
         self.pin_mem = pin_mem
 
         self.accum_iter = 1 # TODO: remove this parameter!
+        self.global_pool = 'token' # TODO: Obly in sensing
 
     def get_model(self):
         if self.task == 'segmentation':
             import models.models_segmentation as task_models
+            return task_models.__dict__[self.base_arch]() # Initiate the model architecture
         elif self.task == 'sensing':
             import models.models_vit as task_models
-        return task_models.__dict__[self.base_arch]() # Initiate the model architecture
+            return task_models.__dict__[self.base_arch](global_pool=self.global_pool,
+                                                        num_classes=self.num_classes,
+                                                        drop_path_rate=self.drop_path)
     
     def get_dataset(self, train_path:str, val_path:str):
         if self.task == 'segmentation':
@@ -100,7 +104,7 @@ class FineTuningArgs:
         elif self.task == 'sensing':
             from dataset_classes.csi_sensing import CSISensingDataset as TaskDataset
 
-        dataset_train = TaskDataset(dataset_dir=train_path)
-        dataset_val = TaskDataset(dataset_dir=val_path)
+        dataset_train = TaskDataset(train_path)
+        dataset_val = TaskDataset(val_path)
         return dataset_train, dataset_val
 

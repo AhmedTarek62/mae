@@ -63,3 +63,9 @@ def vit_large_patch16(**kwargs):
         patch_size=16, embed_dim=1024, depth=24, num_heads=16, mlp_ratio=4, qkv_bias=True,
         norm_layer=partial(nn.LayerNorm, eps=1e-6), **kwargs)
     return model
+
+# Some recommended archs
+seg_vit_small_patch16 = vit_small_patch16  # decoder: 512 dim, 8 blocks
+seg_vit_medium_patch16 = vit_medium_patch16  # decoder: 512 dim, 8 blocks
+seg_vit_large_patch16 = vit_large_patch16  # decoder: 512 dim, 8 blocks
+
