@@ -32,7 +32,7 @@ from sklearn.model_selection import StratifiedShuffleSplit
 import mae.models.sensing as sensing
 
 from engine_finetune import train_one_epoch, evaluate
-from dataset_classes.radio_sig import RadioSignal
+from dataset_classes.radio_signal_identification_dataset import RadioSignal
 
 
 def get_args_parser():

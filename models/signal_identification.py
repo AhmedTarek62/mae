@@ -14,45 +14,26 @@ from functools import partial
 import torch
 import torch.nn as nn
 
-import timm.models.vision_transformer
 from timm.layers import trunc_normal_
+from sensing import VisionTransformer
 
-class VisionTransformer(timm.models.vision_transformer.VisionTransformer):
+class VisionTransformer_SignalIdentification(VisionTransformer):
     """ Vision Transformer with support for global average pooling
     """
     def __init__(self, global_pool, tanh=False, **kwargs):
-        super(VisionTransformer, self).__init__(**kwargs)
-        self.global_pool = global_pool
-        self.tanh = tanh
-
-    def freeze_encoder(self, num_blocks=None):
-        if num_blocks is None:
-            for param in self.blocks.parameters():
-                param.requires_grad = False
-        else:
-            for param in self.blocks[:num_blocks].parameters():
-                param.requires_grad = False
-
-        for param in self.patch_embed.proj.parameters():
-            param.requires_grad = False
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        x = self.forward_features(x)
-        x = self.forward_head(x)
-        if self.tanh:
-            return torch.tanh(x)
-        return x
+        super(VisionTransformer_SignalIdentification, self).__init__(**kwargs)
     
+
     def load_model_checkpoint(self, checkpoint_path:str):
         checkpoint = torch.load(checkpoint_path, map_location='cpu')
         checkpoint_model = checkpoint['model']
         
         state_dict = self.state_dict()
-        for k in ['head.weight', 'head.bias', 'pos_embed']:
+        for k in ['head.weight', 'head.bias']:
             if k in checkpoint_model and checkpoint_model[k].shape != state_dict[k].shape:
                 print(f"Removing key {k} from pretrained checkpoint")
                 del checkpoint_model[k]
-        checkpoint_model['patch_embed.proj.weight'] = checkpoint_model['patch_embed.proj.weight'].expand(-1, 3, -1, -1)
+
         msg = self.load_state_dict(checkpoint_model, strict=False)
         trunc_normal_(self.head.weight, std=2e-5)
         return msg
