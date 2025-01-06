@@ -1,5 +1,5 @@
 from pathlib import Path
-from dataset_classes.csi_sensing import CSISensingDataset
+from mae.dataset_classes.csi_sensing_dataset import CSISensingDataset
 import matplotlib.pyplot as plt
 import numpy as np
 

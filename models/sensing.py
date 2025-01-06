@@ -15,7 +15,7 @@ import torch
 import torch.nn as nn
 
 import timm.models.vision_transformer
-
+from timm.layers import trunc_normal_
 
 class VisionTransformer(timm.models.vision_transformer.VisionTransformer):
     """ Vision Transformer with support for global average pooling
@@ -42,6 +42,20 @@ class VisionTransformer(timm.models.vision_transformer.VisionTransformer):
         if self.tanh:
             return torch.tanh(x)
         return x
+    
+    def load_model_checkpoint(self, checkpoint_path:str):
+        checkpoint = torch.load(checkpoint_path, map_location='cpu')
+        checkpoint_model = checkpoint['model']
+        
+        state_dict = self.state_dict()
+        for k in ['head.weight', 'head.bias', 'pos_embed']:
+            if k in checkpoint_model and checkpoint_model[k].shape != state_dict[k].shape:
+                print(f"Removing key {k} from pretrained checkpoint")
+                del checkpoint_model[k]
+        checkpoint_model['patch_embed.proj.weight'] = checkpoint_model['patch_embed.proj.weight'].expand(-1, 3, -1, -1)
+        msg = self.load_state_dict(checkpoint_model, strict=False)
+        trunc_normal_(self.head.weight, std=2e-5)
+        return msg
 
 
 def vit_small_patch16(**kwargs):
@@ -50,6 +64,7 @@ def vit_small_patch16(**kwargs):
         norm_layer=partial(nn.LayerNorm, eps=1e-6), **kwargs)
     return model
 
+seg_vit_small_patch16 = vit_small_patch16  # decoder: 512 dim, 8 blocks
 
 def vit_medium_patch16(**kwargs):
     model = VisionTransformer(
@@ -57,6 +72,7 @@ def vit_medium_patch16(**kwargs):
         norm_layer=partial(nn.LayerNorm, eps=1e-6), **kwargs)
     return model
 
+seg_vit_medium_patch16 = vit_medium_patch16  # decoder: 512 dim, 8 blocks
 
 def vit_large_patch16(**kwargs):
     model = VisionTransformer(
@@ -64,8 +80,13 @@ def vit_large_patch16(**kwargs):
         norm_layer=partial(nn.LayerNorm, eps=1e-6), **kwargs)
     return model
 
-# Some recommended archs
-seg_vit_small_patch16 = vit_small_patch16  # decoder: 512 dim, 8 blocks
-seg_vit_medium_patch16 = vit_medium_patch16  # decoder: 512 dim, 8 blocks
 seg_vit_large_patch16 = vit_large_patch16  # decoder: 512 dim, 8 blocks
+
+# TODO: In case you need to design a new architecture of the same SegmentationViT model (changing number of layers, embedding dimension, etc.),
+# please write this function like the 3 previous examples
+def new_custom_arch(**kwargs):
+    # Note: You can to also set a new for it in the recommended archs below
+    pass
+
+# TODO: Set an alias name to your architecture
 

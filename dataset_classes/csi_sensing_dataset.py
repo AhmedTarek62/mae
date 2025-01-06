@@ -10,9 +10,15 @@ import numpy as np
 
 
 class CSISensingDataset(Dataset):
-    def __init__(self, root_dir, img_size=(224, 224), augment_transforms=None, downsampled=False):
-        self.root_dir = root_dir
-        self.file_list = os.listdir(Path(root_dir))
+    def __init__(self, root_dir, img_size=(224, 224), augment_transforms=None, downsampled=False, split:str="train"):
+
+        assert split in ["train", "test", "val"], print(f"split parameters must be train, test or val but got {split}")
+        if split == "train":
+            self.root_dir = Path(os.path.join(root_dir, 'train'))
+        elif split == "val" or split == "test":
+            self.root_dir = Path(os.path.join(root_dir, 'test'))
+
+        self.file_list = os.listdir(Path(self.root_dir))
         self.img_size = img_size
         self.labels = ['run', 'walk', 'fall', 'box', 'circle', 'clean']
         self.downsampled = downsampled

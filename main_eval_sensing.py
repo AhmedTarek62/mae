@@ -3,10 +3,10 @@ from pathlib import Path
 import os
 
 import torch
-from dataset_classes.csi_sensing import CSISensingDataset
+from mae.dataset_classes.csi_sensing_dataset import CSISensingDataset
 from sklearn.metrics import confusion_matrix
 from torch.utils.data import DataLoader
-import mae.models.models_vit as models_vit
+import mae.models.sensing as sensing
 import matplotlib.pyplot as plt
 import seaborn as sns
 from tqdm import tqdm
@@ -32,7 +32,7 @@ def main(args):
         for i, (model_key, model_name) in enumerate(tqdm(models, desc="Models")):
             ckpt_path = os.path.join(ckpt_dir, model_name)
             ckpt = torch.load(ckpt_path, map_location=device)['model']
-            model = getattr(models_vit, model_key)(global_pool='token', num_classes=6)
+            model = getattr(sensing, model_key)(global_pool='token', num_classes=6)
             state_dict = model.state_dict()
             for k in ['head.weight', 'head.bias', 'pos_embed']:
                 if k in ckpt and ckpt[k].shape != state_dict[k].shape:

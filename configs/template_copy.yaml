@@ -15,7 +15,7 @@ drop_path: 0.1                          # Drop path rate for regularization
 
 # Training parameters
 batch_size: 64                          # Batch size for training
-epochs: 50                              # Number of training epochs
+epochs: 10                              # Number of training epochs
 save_every: 5                          # Save checkpoint every N epochs
 
 # Optimizer parameters

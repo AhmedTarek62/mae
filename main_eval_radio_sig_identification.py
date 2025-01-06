@@ -4,7 +4,7 @@ from torch.utils.data import DataLoader
 
 from dataset_classes.radio_sig import RadioSignal
 import torch
-import mae.models.models_vit as models_vit
+import mae.models.sensing as sensing
 import numpy as np
 from sklearn.model_selection import StratifiedShuffleSplit
 from sklearn.metrics import confusion_matrix
@@ -31,7 +31,7 @@ dataloader_train = DataLoader(dataset_train, batch_size=256, shuffle=True, num_w
 dataloader_test = DataLoader(dataset_test, batch_size=256, shuffle=False, num_workers=0)
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-model = models_vit.__dict__['vit_small_patch16'](global_pool='token', num_classes=20, drop_path_rate=0.1, in_chans=1)
+model = sensing.__dict__['vit_small_patch16'](global_pool='token', num_classes=20, drop_path_rate=0.1, in_chans=1)
 checkpoint = torch.load(Path('checkpoints/checkpoint-200.pth'), map_location='cpu')
 msg = model.load_state_dict(checkpoint['model'], strict=True)
 print(msg)

@@ -6,6 +6,8 @@ from torchvision import transforms
 import torch
 from scipy.io import loadmat
 import os
+from pathlib import Path
+
 
 input_name_format = 'LTE_NR_spect_frame_{}.mat'
 target_name_format = 'LTE_NR_labels_frame_{}.mat'
@@ -13,8 +15,15 @@ metadata_name_format = 'LTE_NR_metadata_frame_{}.mat'
 
 
 class SegmentationDataset(Dataset):
-    def __init__(self, dataset_dir, img_shape=(224, 224)):
-        self.dataset_dir = dataset_dir
+    def __init__(self, dataset_dir, img_shape=(224, 224), split:str="train"):
+
+        assert split in ["train", "test", "val"], print(f"split parameters must be train, test or val but got {split}")
+        if split == "train":
+            self.dataset_dir = Path(os.path.join(dataset_dir, 'Train/LTE_NR'))
+        elif split == "val" or split == "test":
+            self.dataset_dir = Path(os.path.join(dataset_dir, 'Test/LTE_NR'))
+
+
         self.transform = Compose([Lambda(lambda x: torch.as_tensor(x, dtype=torch.float32)),
                                   Lambda(lambda x: x.reshape((1, x.shape[0], x.shape[1]))),
                                   Resize(img_shape, antialias=True)])

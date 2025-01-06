@@ -34,7 +34,7 @@ from util.misc import NativeScalerWithGradNormCount as NativeScaler
 from util.lars import LARS
 from util.crop import RandomResizedCrop
 
-import mae.models.models_vit as models_vit
+import mae.models.sensing as sensing
 
 from engine_finetune import train_one_epoch, evaluate
 
@@ -186,7 +186,7 @@ def main(args):
         drop_last=False
     )
 
-    model = models_vit.__dict__[args.model](
+    model = sensing.__dict__[args.model](
         num_classes=args.nb_classes,
         global_pool=args.global_pool,
     )

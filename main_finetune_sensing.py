@@ -28,10 +28,10 @@ from timm.layers import trunc_normal_
 from timm.loss import LabelSmoothingCrossEntropy, SoftTargetCrossEntropy
 from timm.data.mixup import Mixup
 
-import mae.models.models_vit as models_vit
+import mae.models.sensing as sensing
 
 from engine_finetune import train_one_epoch, evaluate
-from dataset_classes.csi_sensing import CSISensingDataset
+from mae.dataset_classes.csi_sensing_dataset import CSISensingDataset
 
 
 def get_args_parser():
@@ -214,7 +214,7 @@ def main(args):
     else:
         mixup_fn = None
 
-    model = models_vit.__dict__[args.model](global_pool=args.global_pool, num_classes=args.nb_classes,
+    model = sensing.__dict__[args.model](global_pool=args.global_pool, num_classes=args.nb_classes,
                                             drop_path_rate=args.drop_path)
 
     if args.finetune and not args.eval:

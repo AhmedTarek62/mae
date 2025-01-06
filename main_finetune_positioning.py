@@ -29,7 +29,7 @@ from util.misc import NativeScalerWithGradNormCount as NativeScaler
 from timm.layers import trunc_normal_
 from timm.data.mixup import Mixup
 
-import mae.models.models_vit as models_vit
+import mae.models.sensing as sensing
 import math
 
 from engine_finetune_regression import train_one_epoch, evaluate
@@ -207,7 +207,7 @@ def main(args):
     )
 
 
-    model = models_vit.__dict__[args.model](global_pool=args.global_pool, num_classes=args.nb_outputs,
+    model = sensing.__dict__[args.model](global_pool=args.global_pool, num_classes=args.nb_outputs,
                                             drop_path_rate=args.drop_path, tanh=args.tanh,
                                             in_chans=4 if args.scene == 'outdoor' else 5)
     #

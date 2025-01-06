@@ -2,10 +2,10 @@ import argparse
 from pathlib import Path
 
 import torch
-from dataset_classes.csi_sensing import CSISensingDataset
+from mae.dataset_classes.csi_sensing_dataset import CSISensingDataset
 from sklearn.metrics import confusion_matrix
 from torch.utils.data import DataLoader
-import mae.models.models_vit as models_vit
+import mae.models.sensing as sensing
 import matplotlib.pyplot as plt
 import seaborn as sns
 from tqdm import tqdm
@@ -25,7 +25,7 @@ def main(args):
     test_loader = DataLoader(test_set, batch_size=batch_size, num_workers=num_workers, shuffle=True)
     with torch.no_grad():
         ckpt = torch.load(ckpt_path, map_location=device)['model']
-        model = getattr(models_vit, model_name)(global_pool='token', num_classes=6)
+        model = getattr(sensing, model_name)(global_pool='token', num_classes=6)
         state_dict = model.state_dict()
         for k in ['head.weight', 'head.bias', 'pos_embed']:
             if k in ckpt and ckpt[k].shape != state_dict[k].shape:

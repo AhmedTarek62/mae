@@ -1,6 +1,6 @@
 from tqdm import tqdm
 
-import mae.models.models_vit as models_vit
+import mae.models.sensing as sensing
 from dataset_classes.positioning_nr import PositioningNR
 import torch
 import numpy as np
@@ -28,7 +28,7 @@ dataloader_test = DataLoader(dataset_test, batch_size=256, shuffle=False, num_wo
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 # device = 'cpu'
-model = models_vit.__dict__['vit_medium_patch16'](global_pool='token', num_classes=3, drop_path_rate=0.1, in_chans=5)
+model = sensing.__dict__['vit_medium_patch16'](global_pool='token', num_classes=3, drop_path_rate=0.1, in_chans=5)
 checkpoint = torch.load(Path('checkpoints/checkpoint-70.pth'), map_location='cpu')
 msg = model.load_state_dict(checkpoint['model'], strict=True)
 print(msg)

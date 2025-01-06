@@ -1,8 +1,8 @@
 experiment_name: exp0_seg                   # Set a name for your experiment
 
 # Task
-task: 'segmenation'  # Options: ['segmenation', 'sensing', 'custom']
-data_path: '/home/elsayedmohammed/datasets/segmenation_dataset' # specifiy the datset path
+task: 'segmentation'  # Options: ['segmenation', 'sensing', 'custom']
+data_path: '/home/elsayedmohammed/datasets/segmentation_dataset' # specifiy the datset path
 
 # Base Model
 base_arch: seg_vit_medium_patch16 # Options: ['seg_vit_small_patch16', 'seg_vit_medium_patch16', 'seg_vit_large_patch16']
@@ -15,7 +15,7 @@ drop_path: 0.1                          # Drop path rate for regularization
 
 # Training parameters
 batch_size: 64                          # Batch size for training
-epochs: 20                              # Number of training epochs
+epochs: 10                              # Number of training epochs
 save_every: 5                          # Save checkpoint every N epochs
 
 # Optimizer parameters

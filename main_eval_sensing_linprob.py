@@ -4,9 +4,9 @@ import os
 
 import torch
 import torch.nn.functional as F
-from dataset_classes.csi_sensing import CSISensingDataset
+from mae.dataset_classes.csi_sensing_dataset import CSISensingDataset
 from torch.utils.data import DataLoader
-import mae.models.models_vit as models_vit
+import mae.models.sensing as sensing
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 import numpy as np
@@ -32,7 +32,7 @@ def main(args):
             for j, mask_ratio in enumerate(tqdm(mask_ratios, desc=f"Mask Ratios for {model_key}", leave=False)):
                 ckpt_path = os.path.join(ckpt_dir, model_name % mask_ratio)
                 ckpt = torch.load(ckpt_path, map_location=device)['model']
-                model = getattr(models_vit, model_key)(global_pool='token', num_classes=6)
+                model = getattr(sensing, model_key)(global_pool='token', num_classes=6)
                 state_dict = model.state_dict()
                 for k in ['head.weight', 'head.bias', 'pos_embed']:
                     if k in ckpt and ckpt[k].shape != state_dict[k].shape:

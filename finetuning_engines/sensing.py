@@ -18,7 +18,6 @@ import torch
 from timm.data import Mixup
 from timm.utils import accuracy
 
-import util.misc as misc
 import util.lr_sched as lr_sched
 from tqdm import tqdm
 
@@ -76,13 +75,10 @@ def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
             if mixup_fn:
                 samples, targets = mixup_fn(samples, targets)
             
-            # with torch.cuda.amp.autocast():
             with torch.amp.autocast('cuda'):
                 outputs = model(samples)
-                targets = targets.view(-1)
-                outputs = outputs.permute(0, 2, 3, 1).reshape(-1, outputs.shape[1])
                 loss = criterion(outputs, targets)
-            
+
             loss_value = loss.item()
 
             if not math.isfinite(loss_value):
@@ -129,12 +125,9 @@ def evaluate(data_loader, model, criterion, device):
             # compute output
             with torch.amp.autocast('cuda'):
                 outputs = model(samples)
-                targets = targets.view(-1)
-                outputs = outputs.permute(0, 2, 3, 1).reshape(-1, outputs.shape[1])
                 loss = criterion(outputs, targets)
-
-            # acc1, acc5 = accuracy(output, target, topk=(1, 5))
-            acc1 = torch.sum(torch.argmax(outputs, dim=-1) == targets) / targets.shape[0] * 100
+            
+            acc1, acc3 = accuracy(outputs, targets, topk=(1, 3))
             batch_size = samples.shape[0]
             
             losses.append(loss.item())
