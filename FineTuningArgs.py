@@ -39,17 +39,8 @@ class FineTuningArgs:
         
         # Task parameters
         self.task = task
-        assert task in ["segmentation", "sensing", "signal_identification", "positioning", "custom"], print(f"Incorrect task provided! ({task})")
+        assert task in ["segmentation", "sensing", "signal_identification", "positioning", "channel_estimation", "custom"], print(f"Incorrect task provided! ({task})")
         print(f"Finetuning on the ({self.task}) task..")
-        
-        if task == 'segmentation':
-            import models.segmentation as task_models
-        elif task == 'sensing':
-            import models.sensing as task_models
-        elif task == 'signal_identification':
-            import models.signal_identification as task_models
-        else:
-            import models.signal_identification as task_models
 
         # Training parameters
         self.batch_size = batch_size
@@ -58,7 +49,6 @@ class FineTuningArgs:
 
         # Model parameters
         self.base_model_path = base_model_path
-        assert base_arch in list(task_models.__dict__.keys()), print(f"This model architecture ({base_arch}) is not available!")
         self.base_arch = base_arch
         self.input_size = input_size
         self.drop_path = drop_path
@@ -92,13 +82,4 @@ class FineTuningArgs:
         self.accum_iter = 1 # TODO: remove this parameter!
         self.global_pool = 'token' # TODO: Obly in sensing
 
-    def get_model(self):
-        if self.task == 'segmentation':
-            import models.segmentation as task_models
-            return task_models.__dict__[self.base_arch]() # Initiate the model architecture
-        elif self.task == 'sensing':
-            import models.sensing as task_models
-            return task_models.__dict__[self.base_arch](global_pool=self.global_pool,
-                                                        num_classes=self.num_classes,
-                                                        drop_path_rate=self.drop_path)
 

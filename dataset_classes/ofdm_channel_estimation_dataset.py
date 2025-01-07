@@ -4,11 +4,18 @@ import torch
 
 from torch.utils.data import Dataset
 from torchvision.transforms import Compose, Lambda, Normalize, Resize, InterpolationMode
+from pathlib import Path
 
 
 class OfdmChannelEstimation(Dataset):
-    def __init__(self, data_path, batch_size=64, compute_stats=False, normalize_labels=False):
-        self.data_path = data_path
+    def __init__(self, data_path, batch_size=64, compute_stats=False, normalize_labels=False, split:str="train"):
+
+        assert split in ["train", "test", "val"], print(f"split parameters must be train, test or val but got {split}")
+        if split == "train":
+            self.data_path = Path(os.path.join(data_path, 'train'))
+        elif split == "val" or split == "test":
+            self.data_path = Path(os.path.join(data_path, 'val'))
+
         self.batch_size = batch_size
         self.file_list = os.listdir(self.data_path)
         if compute_stats:

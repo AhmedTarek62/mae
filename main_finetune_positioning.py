@@ -33,7 +33,7 @@ import mae.models.sensing as sensing
 import math
 
 from engine_finetune_regression import train_one_epoch, evaluate
-from dataset_classes.positioning_nr import PositioningNR
+from dataset_classes.positioning_nr_dataset import PositioningNR
 
 
 def get_args_parser():

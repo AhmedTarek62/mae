@@ -1,11 +1,11 @@
-experiment_name: exp1_positioning                   # Set a name for your experiment
+experiment_name: exp1_channel_estimation                  # Set a name for your experiment
 
 # Task
-task: 'positioning'  # Options: ['segmenation', 'sensing', 'signal_identification', 'custom']
-data_path: '/home/elsayedmohammed/datasets/5g_nr_positioning' # specifiy the datset path
+task: 'channel_estimation'  # Options: ['segmenation', 'sensing', 'signal_identification', 'custom']
+data_path: '/home/elsayedmohammed/datasets/channel_estimation_dataset' # specifiy the datset path
 
 # Base Model
-base_arch: posi_vit_medium_patch16 # Options: ['seg_vit_small_patch16', 'seg_vit_medium_patch16', 'seg_vit_large_patch16']
+base_arch: chEst_medium_patch16 # Options: ['seg_vit_small_patch16', 'seg_vit_medium_patch16', 'seg_vit_large_patch16']
 base_model_path: '/home/elsayedmohammed/vit-models/pretrained_medium_75.pth' # Specifiy the path of base model in your system
 
 # Model parameters

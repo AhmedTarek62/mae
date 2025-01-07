@@ -33,7 +33,7 @@ import models_ofdm_ce
 import math
 
 from engine_finetune_regression_ce import train_one_epoch, evaluate
-from dataset_classes.ofdm_channel_estimation import OfdmChannelEstimation
+from dataset_classes.ofdm_channel_estimation_dataset import OfdmChannelEstimation
 from snr_weighted_loss import WeightedLoss
 
 def get_args_parser():

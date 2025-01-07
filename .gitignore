@@ -8,3 +8,5 @@ __pycache__/
 *.gz
 *.pth
 *.h5
+
+test.ipynb
