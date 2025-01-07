@@ -4,14 +4,23 @@ import h5py
 import os
 from torchvision.transforms import Compose, Resize, Lambda, Normalize, InterpolationMode
 import torch
+from torch.utils.data import random_split
+from pathlib import Path
 
 
 class PositioningNR(Dataset):
-    def __init__(self, datapath, img_size=(224, 224), scene='outdoor'):
+    def __init__(self, datapath, img_size=(224, 224), scene='outdoor', split:str="train"):
+
+        assert split in ["train", "test", "val"], print(f"split parameters must be train, test or val but got {split}")
+        if split == "train":
+            self.datapath = Path(os.path.join(datapath, 'train'))
+        elif split == "val" or split == "test":
+            self.datapath = Path(os.path.join(datapath, 'test'))
+
         self.img_size = img_size
         self.scene = scene
-        self.file_paths = [os.path.join(datapath, filename)
-                           for filename in os.listdir(datapath) if scene in filename]
+        self.file_paths = [os.path.join(self.datapath, filename)
+                           for filename in os.listdir(self.datapath) if scene in filename]
 
         self.offsets = []
 
@@ -46,6 +55,7 @@ class PositioningNR(Dataset):
             Lambda(lambda x: (x - self.min_val) / (self.max_val - self.min_val)),
             Normalize(self.mu, self.std)
         ])
+
 
     @staticmethod
     def _nan_fill_with_mean(array):
@@ -130,3 +140,4 @@ class PositioningNR(Dataset):
 
     def __len__(self):
         return self.offsets[-1]
+

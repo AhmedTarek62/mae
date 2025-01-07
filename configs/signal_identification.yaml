@@ -1,0 +1,40 @@
+experiment_name: exp0_seg                   # Set a name for your experiment
+
+# Task
+task: 'signal_identification'  # Options: ['segmenation', 'sensing', 'signal_identification', 'custom']
+data_path: '/home/elsayedmohammed/datasets/radio_signal_identification_dataset' # specifiy the datset path
+
+# Base Model
+base_arch: sigId_vit_large_patch16 # Options: ['seg_vit_small_patch16', 'seg_vit_medium_patch16', 'seg_vit_large_patch16']
+base_model_path: '/home/elsayedmohammed/vit-models/pretrained_medium_75.pth' # Specifiy the path of base model in your system
+
+# Model parameters
+num_classes: 20                          # Number of target classes for the model
+input_size: 224                         # Size of input images (height/width)
+drop_path: 0.1                          # Drop path rate for regularization
+
+# Training parameters
+batch_size: 64                          # Batch size for training
+epochs: 10                              # Number of training epochs
+save_every: 5                          # Save checkpoint every N epochs
+
+# Optimizer parameters
+weight_decay: 0.05                      # Weight decay for the optimizer
+lr: null                                # Learning rate (if null, use base learning rate `blr`)
+blr: 0.001                              # Base learning rate (scaled with batch size)
+layer_decay: 0.75                       # Layer-wise learning rate decay factor
+min_lr: 1e-6                            # Minimum learning rate during training
+warmup_epoch: 5                         # Number of warmup epochs for learning rate scheduling
+smoothing: 0                            # Cross entropy smoothing parameter
+
+# Dataset and output settings
+output_dir: '/home/elsayedmohammed/outputs'   # Directory to store output files (logs, checkpoints)
+device: "cuda"                          # Device to use for training (e.g., 'cuda' or 'cpu')
+num_workers: 10                         # Number of data loader workers
+pin_mem: true                           # Use pinned memory for data loading
+
+# Seed for reproducibility
+seed: 0                                 # Random seed
+
+
+

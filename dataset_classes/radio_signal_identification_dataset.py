@@ -3,16 +3,22 @@ from torch.utils.data import Dataset
 import os
 from PIL import Image
 from torchvision.transforms import Normalize, Compose, Resize, InterpolationMode, Grayscale, ToTensor, Lambda
+from pathlib import Path
 
+class SignalIdentificatio_Dataset(Dataset):
+    def __init__(self, data_path, split:str="train"):
+         
+        assert split in ["train", "test", "val"], print(f"split parameters must be train, test or val but got {split}")
+        if split == "train":
+            self.data_path = Path(os.path.join(data_path, 'train'))
+        elif split == "val" or split == "test":
+            self.data_path = Path(os.path.join(data_path, 'test'))
 
-class RadioSignal(Dataset):
-    def __init__(self, data_path):
-        self.data_path = data_path
         self.labels = ['ads-b', 'airband', 'ais', 'automatic-picture-transmission', 'bluetooth', 'cellular',
                        'digital-audio-broadcasting', 'digital-speech-decoder', 'fm', 'lora', 'morse', 'on-off-keying',
                        'packet', 'pocsag', 'Radioteletype', 'remote-keyless-entry', 'RS41-Radiosonde', 'sstv', 'vor',
                        'wifi']
-        self.class_freqs = {label: sum(1 if sample.startswith(label) else 0 for sample in os.listdir(data_path))
+        self.class_freqs = {label: sum(1 if sample.startswith(label) else 0 for sample in os.listdir(self.data_path))
                             for label in self.labels}
         total_samples = sum(self.class_freqs.values())
         class_weights = [freq / total_samples for freq in self.class_freqs.values()]

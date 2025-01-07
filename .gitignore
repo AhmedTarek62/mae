@@ -1,6 +1,7 @@
 # Ignore Python bytecode
-*.pyc
 __pycache__/
+*.pyc
+*.pyo
 
 # Ignore files
 *.log

@@ -24,6 +24,7 @@ class VisionTransformer(timm.models.vision_transformer.VisionTransformer):
         super(VisionTransformer, self).__init__(**kwargs)
         self.global_pool = global_pool
         self.tanh = tanh
+        print("Started: ", kwargs)
 
     def freeze_encoder(self, num_blocks=None):
         if num_blocks is None:

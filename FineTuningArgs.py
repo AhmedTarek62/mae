@@ -39,13 +39,17 @@ class FineTuningArgs:
         
         # Task parameters
         self.task = task
-        assert task in ["segmentation", "sensing", "custom"], print(f"Incorrect task provided! ({task})")
+        assert task in ["segmentation", "sensing", "signal_identification", "positioning", "custom"], print(f"Incorrect task provided! ({task})")
         print(f"Finetuning on the ({self.task}) task..")
         
         if task == 'segmentation':
             import models.segmentation as task_models
         elif task == 'sensing':
             import models.sensing as task_models
+        elif task == 'signal_identification':
+            import models.signal_identification as task_models
+        else:
+            import models.signal_identification as task_models
 
         # Training parameters
         self.batch_size = batch_size
