@@ -24,7 +24,6 @@ class VisionTransformer(timm.models.vision_transformer.VisionTransformer):
         super(VisionTransformer, self).__init__(**kwargs)
         self.global_pool = global_pool
         self.tanh = tanh
-        print("Started: ", kwargs)
 
     def freeze_encoder(self, num_blocks=None):
         if num_blocks is None:
@@ -65,15 +64,11 @@ def vit_small_patch16(**kwargs):
         norm_layer=partial(nn.LayerNorm, eps=1e-6), **kwargs)
     return model
 
-seg_vit_small_patch16 = vit_small_patch16  # decoder: 512 dim, 8 blocks
-
 def vit_medium_patch16(**kwargs):
     model = VisionTransformer(
         patch_size=16, embed_dim=768, depth=12, num_heads=12, mlp_ratio=4, qkv_bias=True,
         norm_layer=partial(nn.LayerNorm, eps=1e-6), **kwargs)
     return model
-
-seg_vit_medium_patch16 = vit_medium_patch16  # decoder: 512 dim, 8 blocks
 
 def vit_large_patch16(**kwargs):
     model = VisionTransformer(
@@ -81,15 +76,9 @@ def vit_large_patch16(**kwargs):
         norm_layer=partial(nn.LayerNorm, eps=1e-6), **kwargs)
     return model
 
-seg_vit_large_patch16 = vit_large_patch16  # decoder: 512 dim, 8 blocks
-
 # TODO: In case you need to design a new architecture of the same SegmentationViT model 
 # (changing number of layers, embedding dimension, etc.),
 
 # Please write this function like the 3 previous examples
 def new_custom_arch(**kwargs):
-    # Note: You can to also set a new for it in the recommended archs below
     pass
-
-# TODO: Set an alias name to your architecture
-

@@ -40,37 +40,26 @@ class VisionTransformer_SignalIdentification(VisionTransformer):
 
 
 def vit_small_patch16(**kwargs):
-    model = VisionTransformer(
+    model = VisionTransformer_SignalIdentification(
         patch_size=16, embed_dim=512, depth=12, num_heads=8, mlp_ratio=4, qkv_bias=True,
         norm_layer=partial(nn.LayerNorm, eps=1e-6), **kwargs)
     return model
 
-sigId_vit_small_patch16 = vit_small_patch16  
-
 def vit_medium_patch16(**kwargs):
-    model = VisionTransformer(
+    model = VisionTransformer_SignalIdentification(
         patch_size=16, embed_dim=768, depth=12, num_heads=12, mlp_ratio=4, qkv_bias=True,
         norm_layer=partial(nn.LayerNorm, eps=1e-6), **kwargs)
     return model
 
-sigId_vit_medium_patch16 = vit_medium_patch16 
-
 def vit_large_patch16(**kwargs):
-    print("kwargs2: ", kwargs)
-    model = VisionTransformer(
+    model = VisionTransformer_SignalIdentification(
         patch_size=16, embed_dim=1024, depth=24, num_heads=16, mlp_ratio=4, qkv_bias=True,
         norm_layer=partial(nn.LayerNorm, eps=1e-6), **kwargs)
     return model
-
-sigId_vit_large_patch16 = vit_large_patch16
 
 # TODO: In case you need to design a new architecture of the same SegmentationViT model 
 # (changing number of layers, embedding dimension, etc.),
 
 # Please write this function like the 3 previous examples
 def new_custom_arch(**kwargs):
-    # Note: You can to also set a new for it in the recommended archs below
     pass
-
-# TODO: Set an alias name to your architecture
-

@@ -24,6 +24,7 @@ class VisionTransformer_Positioning(VisionTransformer):
         super(VisionTransformer_Positioning, self).__init__(**kwargs)
         self.scene = scene
 
+
     def load_model_checkpoint(self, checkpoint_path:str):
         checkpoint = torch.load(checkpoint_path, map_location='cpu')
         checkpoint_model = checkpoint['model']
@@ -38,45 +39,38 @@ class VisionTransformer_Positioning(VisionTransformer):
             checkpoint_model['patch_embed.proj.weight'] = checkpoint_model['patch_embed.proj.weight'].expand(-1, 4, -1, -1)
         else:
             checkpoint_model['patch_embed.proj.weight'] = checkpoint_model['patch_embed.proj.weight'].expand(-1, 5, -1, -1)
-
+        
         msg = self.load_state_dict(checkpoint_model, strict=False)
         trunc_normal_(self.head.weight, std=2e-5)
         return msg
 
 
 def vit_small_patch16(**kwargs):
-    model = VisionTransformer(
+    model = VisionTransformer_Positioning(
         patch_size=16, embed_dim=512, depth=12, num_heads=8, mlp_ratio=4, qkv_bias=True,
         norm_layer=partial(nn.LayerNorm, eps=1e-6), **kwargs)
     return model
 
-posi_vit_small_patch16 = vit_small_patch16  
-
 def vit_medium_patch16(**kwargs):
     print("kwargs_medium: ", kwargs)
-    model = VisionTransformer(
+    model = VisionTransformer_Positioning(
         patch_size=16, embed_dim=768, depth=12, num_heads=12, mlp_ratio=4, qkv_bias=True,
         norm_layer=partial(nn.LayerNorm, eps=1e-6), **kwargs)
     return model
 
-posi_vit_medium_patch16 = vit_medium_patch16 
-
 def vit_large_patch16(**kwargs):
     print("kwargs_large: ", kwargs)
-    model = VisionTransformer(
+    model = VisionTransformer_Positioning(
         patch_size=16, embed_dim=1024, depth=24, num_heads=16, mlp_ratio=4, qkv_bias=True,
         norm_layer=partial(nn.LayerNorm, eps=1e-6), **kwargs)
     return model
-
-posi_vit_large_patch16 = vit_large_patch16
 
 # TODO: In case you need to design a new architecture of the same SegmentationViT model 
 # (changing number of layers, embedding dimension, etc.),
 
 # Please write this function like the 3 previous examples
 def new_custom_arch(**kwargs):
-    # Note: You can to also set a new for it in the recommended archs below
     pass
 
-# TODO: Set an alias name to your architecture
+
 
