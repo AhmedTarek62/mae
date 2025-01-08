@@ -207,3 +207,10 @@ def vit_large_patch16(**kwargs):
         decoder_embed_dim=512, decoder_depth=1, decoder_num_heads=16,
         mlp_ratio=4, norm_layer=partial(nn.LayerNorm, eps=1e-6), **kwargs)
     return model
+
+# TODO: In case you need to design a new architecture of the same SegmentationViT model 
+# (changing number of layers, embedding dimension, etc.),
+
+# Please write this function like the 3 previous examples
+def new_custom_arch(**kwargs):
+    pass

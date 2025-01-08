@@ -39,6 +39,3 @@ def new_custom_arch(**kwargs):
     # TODO: Initiate a version (architecture) of your model here for easy establishment
     raise NotImplementedError
 
-# TODO: Set an alias name to your architecture
-arch_example_name = new_custom_arch
-
