@@ -17,7 +17,7 @@ import torch
 
 from timm.data import Mixup
 import util.lr_sched as lr_sched
-from snr_weighted_loss import WeightedLoss
+from old_repo_files.snr_weighted_loss import WeightedLoss
 from tqdm import tqdm
 
 def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
@@ -135,8 +135,6 @@ def evaluate(data_loader, model, criterion, device):
             # compute output
             with torch.amp.autocast('cuda'):
                 outputs = model(samples)
-                # targets = targets.view(-1)
-                # outputs = outputs.permute(0, 2, 3, 1).reshape(-1, outputs.shape[1])
                 if isinstance(criterion, WeightedLoss):
                     loss = criterion(outputs, targets, snr)
                 else:

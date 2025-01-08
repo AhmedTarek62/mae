@@ -1,4 +1,4 @@
-experiment_name: exp1_channel_estimation                  # Set a name for your experiment
+experiment_name: 7jan_channel_estimation                  # Set a name for your experiment
 
 # Task
 task: 'channel_estimation'  # Options: ['segmenation', 'sensing', 'signal_identification', 'custom']
@@ -15,7 +15,7 @@ drop_path: 0.1                          # Drop path rate for regularization
 
 # Training parameters
 batch_size: 64                          # Batch size for training
-epochs: 10                              # Number of training epochs
+epochs: 50                              # Number of training epochs
 save_every: 5                          # Save checkpoint every N epochs
 
 # Optimizer parameters
@@ -29,7 +29,7 @@ smoothing: 0                            # Cross entropy smoothing parameter
 
 # Dataset and output settings
 output_dir: '/home/elsayedmohammed/outputs'   # Directory to store output files (logs, checkpoints)
-device: "cuda"                          # Device to use for training (e.g., 'cuda' or 'cpu')
+device: "cuda:0"                          # Device to use for training (e.g., 'cuda' or 'cpu')
 num_workers: 10                         # Number of data loader workers
 pin_mem: true                           # Use pinned memory for data loading
 
