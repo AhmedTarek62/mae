@@ -17,7 +17,7 @@ import torch.nn as nn
 from timm.models.vision_transformer import PatchEmbed, Block
 from util.pos_embed import get_2d_sincos_pos_embed
 
-class ChannelEstimation_ViT(nn.Module):
+class TaskModel(nn.Module):
     """ Masked Autoencoder with VisionTransformer backbone
     """
 
@@ -188,21 +188,21 @@ class ChannelEstimation_ViT(nn.Module):
 
 
 def vit_small_patch16(**kwargs):
-    model = ChannelEstimation_ViT(
+    model = TaskModel(
         patch_size=16, embed_dim=512, in_chans=2, depth=12, num_heads=8,
         decoder_embed_dim=256, decoder_depth=1, decoder_num_heads=16,
         mlp_ratio=4, norm_layer=partial(nn.LayerNorm, eps=1e-6), **kwargs)
     return model
 
 def vit_medium_patch16(**kwargs):
-    model = ChannelEstimation_ViT(
+    model = TaskModel(
         patch_size=16, embed_dim=768, in_chans=2, depth=12, num_heads=12,
         decoder_embed_dim=512, decoder_depth=1, decoder_num_heads=16,
         mlp_ratio=4, norm_layer=partial(nn.LayerNorm, eps=1e-6), **kwargs)
     return model
 
 def vit_large_patch16(**kwargs):
-    model = ChannelEstimation_ViT(
+    model = TaskModel(
         patch_size=16, embed_dim=1024, in_chans=2, depth=24, num_heads=16,
         decoder_embed_dim=512, decoder_depth=1, decoder_num_heads=16,
         mlp_ratio=4, norm_layer=partial(nn.LayerNorm, eps=1e-6), **kwargs)

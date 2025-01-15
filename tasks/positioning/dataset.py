@@ -8,7 +8,7 @@ from torch.utils.data import random_split
 from pathlib import Path
 
 
-class PositioningNR_Dataset(Dataset):
+class TaskDataset(Dataset):
     def __init__(self, datapath, img_size=(224, 224), scene='outdoor', split:str="train"):
 
         assert split in ["train", "test", "val"], print(f"split parameters must be train, test or val but got {split}")

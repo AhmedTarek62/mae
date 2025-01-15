@@ -17,11 +17,11 @@ import torch.nn as nn
 import timm.models.vision_transformer
 from timm.layers import trunc_normal_
 
-class VisionTransformer(timm.models.vision_transformer.VisionTransformer):
+class TaskModel(timm.models.vision_transformer.VisionTransformer):
     """ Vision Transformer with support for global average pooling
     """
     def __init__(self, global_pool, tanh=False, **kwargs):
-        super(VisionTransformer, self).__init__(**kwargs)
+        super(TaskModel, self).__init__(**kwargs)
         self.global_pool = global_pool
         self.tanh = tanh
 
@@ -59,19 +59,19 @@ class VisionTransformer(timm.models.vision_transformer.VisionTransformer):
 
 
 def vit_small_patch16(**kwargs):
-    model = VisionTransformer(
+    model = TaskModel(
         patch_size=16, embed_dim=512, depth=12, num_heads=8, mlp_ratio=4, qkv_bias=True,
         norm_layer=partial(nn.LayerNorm, eps=1e-6), **kwargs)
     return model
 
 def vit_medium_patch16(**kwargs):
-    model = VisionTransformer(
+    model = TaskModel(
         patch_size=16, embed_dim=768, depth=12, num_heads=12, mlp_ratio=4, qkv_bias=True,
         norm_layer=partial(nn.LayerNorm, eps=1e-6), **kwargs)
     return model
 
 def vit_large_patch16(**kwargs):
-    model = VisionTransformer(
+    model = TaskModel(
         patch_size=16, embed_dim=1024, depth=24, num_heads=16, mlp_ratio=4, qkv_bias=True,
         norm_layer=partial(nn.LayerNorm, eps=1e-6), **kwargs)
     return model

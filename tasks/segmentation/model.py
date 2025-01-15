@@ -18,7 +18,7 @@ from timm.models.vision_transformer import PatchEmbed, Block
 from util.pos_embed import get_2d_sincos_pos_embed
 
 
-class SegmentationViT(nn.Module):
+class TaskModel(nn.Module):
     """ Masked Autoencoder with VisionTransformer backbone.
     This class is a custom implementation of a Vision Transformer (ViT) tailored for segmentation tasks. 
     It incorporates components from Masked Autoencoders (MAE) to handle image patches and reconstruction tasks.
@@ -201,21 +201,21 @@ class SegmentationViT(nn.Module):
     
 
 def vit_small_patch16(**kwargs):
-    model = SegmentationViT(
+    model = TaskModel(
         patch_size=16, embed_dim=512, in_chans=1, depth=12, num_heads=8,
         decoder_embed_dim=256, decoder_depth=2, decoder_num_heads=16,
         mlp_ratio=4, norm_layer=partial(nn.LayerNorm, eps=1e-6), **kwargs)
     return model
 
 def vit_medium_patch16(**kwargs):
-    model = SegmentationViT(
+    model = TaskModel(
         patch_size=16, embed_dim=768, in_chans=1, depth=12, num_heads=12,
         decoder_embed_dim=512, decoder_depth=2, decoder_num_heads=16,
         mlp_ratio=4, norm_layer=partial(nn.LayerNorm, eps=1e-6), **kwargs)
     return model
 
 def vit_large_patch16(**kwargs):
-    model = SegmentationViT(
+    model = TaskModel(
         patch_size=16, embed_dim=1024, in_chans=1, depth=24, num_heads=16,
         decoder_embed_dim=512, decoder_depth=2, decoder_num_heads=16,
         mlp_ratio=4, norm_layer=partial(nn.LayerNorm, eps=1e-6), **kwargs)

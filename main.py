@@ -10,7 +10,6 @@ import util.misc as misc
 import json
 import datetime
 from util.misc import report_score
-import tasks
 import importlib
 
 # Constants
@@ -84,7 +83,7 @@ if __name__ == "__main__":
     #                         for your dataset class as TasDataset")
     #     # You can also build your dataset class here in this cell and then change the two following lines accordingly
 
-    TaskDataset = getattr(importlib.import_module(f"tasks.{task}.dataset"), "SegmentationDataset") # TODO
+    TaskDataset = getattr(importlib.import_module(f"tasks.{task}.dataset"), "TaskDataset")
     TaskModel = importlib.import_module(f"tasks.{task}.model")
     train_one_epoch = getattr(importlib.import_module(f"tasks.{task}.finetuning_engine"), "train_one_epoch")
     evaluate = getattr(importlib.import_module(f"tasks.{task}.finetuning_engine"), "evaluate")

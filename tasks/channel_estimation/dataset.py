@@ -7,7 +7,7 @@ from torchvision.transforms import Compose, Lambda, Normalize, Resize, Interpola
 from pathlib import Path
 
 
-class OfdmChannelEstimation_Dataset(Dataset):
+class TaskDataset(Dataset):
     def __init__(self, data_path, batch_size=64, compute_stats=False, normalize_labels=False, split:str="train"):
 
         assert split in ["train", "test", "val"], print(f"split parameters must be train, test or val but got {split}")

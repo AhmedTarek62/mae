@@ -15,13 +15,13 @@ import torch
 import torch.nn as nn
 
 from timm.layers import trunc_normal_
-from models.sensing import VisionTransformer
+from ..csi_sensing.model import TaskModel as VisionTransformer
 
-class VisionTransformer_SignalIdentification(VisionTransformer):
+class TaskModel(VisionTransformer):
     """ Vision Transformer with support for global average pooling
     """
     def __init__(self, **kwargs):
-        super(VisionTransformer_SignalIdentification, self).__init__(**kwargs)
+        super(TaskModel, self).__init__(**kwargs)
     
 
     def load_model_checkpoint(self, checkpoint_path:str):
@@ -40,19 +40,19 @@ class VisionTransformer_SignalIdentification(VisionTransformer):
 
 
 def vit_small_patch16(**kwargs):
-    model = VisionTransformer_SignalIdentification(
+    model = TaskModel(
         patch_size=16, embed_dim=512, depth=12, num_heads=8, mlp_ratio=4, qkv_bias=True,
         norm_layer=partial(nn.LayerNorm, eps=1e-6), **kwargs)
     return model
 
 def vit_medium_patch16(**kwargs):
-    model = VisionTransformer_SignalIdentification(
+    model = TaskModel(
         patch_size=16, embed_dim=768, depth=12, num_heads=12, mlp_ratio=4, qkv_bias=True,
         norm_layer=partial(nn.LayerNorm, eps=1e-6), **kwargs)
     return model
 
 def vit_large_patch16(**kwargs):
-    model = VisionTransformer_SignalIdentification(
+    model = TaskModel(
         patch_size=16, embed_dim=1024, depth=24, num_heads=16, mlp_ratio=4, qkv_bias=True,
         norm_layer=partial(nn.LayerNorm, eps=1e-6), **kwargs)
     return model

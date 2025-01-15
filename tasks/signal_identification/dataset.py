@@ -5,7 +5,7 @@ from PIL import Image
 from torchvision.transforms import Normalize, Compose, Resize, InterpolationMode, Grayscale, ToTensor, Lambda
 from pathlib import Path
 
-class SignalIdentificatio_Dataset(Dataset):
+class TaskDataset(Dataset):
     def __init__(self, data_path, split:str="train"):
          
         assert split in ["train", "test", "val"], print(f"split parameters must be train, test or val but got {split}")

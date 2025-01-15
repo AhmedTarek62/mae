@@ -9,7 +9,7 @@ from pathlib import Path
 import numpy as np
 
 
-class CSISensingDataset(Dataset):
+class TaskDataset(Dataset):
     def __init__(self, root_dir, img_size=(224, 224), augment_transforms=None, downsampled=False, split:str="train"):
 
         assert split in ["train", "test", "val"], print(f"split parameters must be train, test or val but got {split}")

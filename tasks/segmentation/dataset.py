@@ -14,7 +14,7 @@ target_name_format = 'LTE_NR_labels_frame_{}.mat'
 metadata_name_format = 'LTE_NR_metadata_frame_{}.mat'
 
 
-class SegmentationDataset(Dataset):
+class TaskDataset(Dataset):
     def __init__(self, dataset_dir, img_shape=(224, 224), split:str="train"):
 
         assert split in ["train", "test", "val"], print(f"split parameters must be train, test or val but got {split}")
