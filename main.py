@@ -10,17 +10,28 @@ import util.misc as misc
 import json
 import datetime
 from util.misc import report_score
+import tasks
+import importlib
+
+# Constants
+CURRENT_TASKS = ['segmentation', 'csi_sensing', 'channel_estimation', 'signal_identification', 'positioning']
+
 
 def parse_arguments():
     parser = argparse.ArgumentParser()
-    parser.add_argument("-f", "--config", type=str)
+    parser.add_argument("-t", "--task", type=str)
     return parser.parse_args()
 
 if __name__ == "__main__":
     # 1. read args
     args = parse_arguments()
-    
-    with open(args.config, 'r') as yaml_file:
+    task = args.task
+    assert task in CURRENT_TASKS, print(f'Invalid task input. Unrecognizable task ({task})!')
+
+    root_dir = os.getcwd()
+
+    config_path = os.path.join(root_dir, 'tasks', task, 'config.yaml')
+    with open(config_path, 'r') as yaml_file:
         config = yaml.safe_load(yaml_file)
     
     exp_name = config["experiment_name"]
@@ -46,22 +57,37 @@ if __name__ == "__main__":
     np.random.seed(config.seed)
 
     cudnn.benchmark = True # DEVELOPERS:check
+    # Import the task files
+    # if task == 'segmentation':
+    #     from tasks.segmentation.dataset import SegmentationDataset as TaskDataset
+    #     import tasks.segmentation.model as TaskModel
+    #     from tasks.segmentation.finetuning_engine import train_one_epoch, evaluate
+    # elif task == 'csi_sensing':
+    #     from tasks.csi_sensing.dataset import CSISensingDataset as TaskDataset
+    #     import tasks.csi_sensing.model as TaskModel
+    #     from tasks.csi_sensing.finetuning_engine import train_one_epoch, evaluate
+    # elif task == 'channel_estimation':
+    #     from tasks.channel_estimation.dataset import OfdmChannelEstimation_Dataset as TaskDataset
+    #     import tasks.channel_estimation.model as TaskModel
+    #     from tasks.channel_estimation.finetuning_engine import train_one_epoch, evaluate
+    # elif task == 'positioning':
+    #     from tasks.positioning.dataset import PositioningNR_Dataset as TaskDataset
+    #     import tasks.positioning.model as TaskModel
+    #     from tasks.positioning.finetuning_engine import train_one_epoch, evaluate
+    # elif task == 'signal_identification':
+    #     from tasks.signal_identification.dataset import SignalIdentificatio_Dataset as TaskDataset
+    #     import tasks.signal_identification.model as TaskModel
+    #     from tasks.signal_identification.finetuning_engine import train_one_epoch, evaluate
+    # else:
+    #     # TODO
+    #     assert False, print("Replace this line with import statment \
+    #                         for your dataset class as TasDataset")
+    #     # You can also build your dataset class here in this cell and then change the two following lines accordingly
 
-    if config.task == 'segmentation':
-        from dataset_classes.segmentation_dataset import SegmentationDataset as TaskDataset
-    elif config.task == 'sensing':
-        from dataset_classes.csi_sensing_dataset import CSISensingDataset as TaskDataset
-    elif config.task == 'signal_identification':
-        from dataset_classes.radio_signal_identification_dataset import SignalIdentificatio_Dataset as TaskDataset
-    elif config.task == 'positioning':
-        from dataset_classes.positioning_nr_dataset import PositioningNR as TaskDataset
-    elif config.task == 'channel_estimation':
-        from dataset_classes.ofdm_channel_estimation_dataset import OfdmChannelEstimation as TaskDataset
-    else:
-        # TODO
-        assert False, print("Replace this line with import statment \
-                            for your dataset class as TasDataset")
-        # You can also build your dataset class here in this cell and then change the two following lines accordingly
+    TaskDataset = getattr(importlib.import_module(f"tasks.{task}.dataset"), "SegmentationDataset") # TODO
+    TaskModel = importlib.import_module(f"tasks.{task}.model")
+    train_one_epoch = getattr(importlib.import_module(f"tasks.{task}.finetuning_engine"), "train_one_epoch")
+    evaluate = getattr(importlib.import_module(f"tasks.{task}.finetuning_engine"), "evaluate")
 
     dataset_train = TaskDataset(data_path, split="train")
     dataset_val = TaskDataset(data_path, split="val")
@@ -90,43 +116,30 @@ if __name__ == "__main__":
             drop_last=False
         )
     
+    # Model
+    assert config.base_arch in list(TaskModel.__dict__.keys()),\
+        print(f"This model architecture ({config.base_arch}) is not available!")
 
     if config.task == 'segmentation':
-        import models.segmentation as task_model
-        assert config.base_arch in list(task_model.__dict__.keys()),\
-            print(f"This model architecture ({config.base_arch}) is not available!")
-        model = task_model.__dict__[config.base_arch]() 
+        model = TaskModel.__dict__[config.base_arch]() 
 
     elif config.task == 'sensing':
-        import models.sensing as task_model
-        assert config.base_arch in list(task_model.__dict__.keys()),\
-            print(f"This model architecture ({config.base_arch}) is not available!")
-        model = task_model.__dict__[config.base_arch](global_pool=config.global_pool,
+        model = TaskModel.__dict__[config.base_arch](global_pool=config.global_pool,
                                                     num_classes=config.num_classes,
-                                                    drop_path_rate=config.drop_path)
-        
+                                                    drop_path_rate=config.drop_path)    
     elif config.task == 'signal_identification':
-        import models.signal_identification as task_model
-        assert config.base_arch in list(task_model.__dict__.keys()),\
-            print(f"This model architecture ({config.base_arch}) is not available!")
-        model = task_model.__dict__[config.base_arch](global_pool=config.global_pool,
+        model = TaskModel.__dict__[config.base_arch](global_pool=config.global_pool,
                                                     num_classes=config.num_classes,
                                                     drop_path_rate=config.drop_path,
                                                     in_chans=1)
     elif config.task == 'positioning':
         scene = "outdoor" # TODO: (DEVELOPERS)
         tanh = False # TODO: (DEVELOPERS)
-        import models.positioning as task_model
-        assert config.base_arch in list(task_model.__dict__.keys()),\
-            print(f"This model architecture ({config.base_arch}) is not available!")
-        model = task_model.__dict__[config.base_arch](global_pool=config.global_pool, num_classes=config.num_classes,
+        model = TaskModel.__dict__[config.base_arch](global_pool=config.global_pool, num_classes=config.num_classes,
                                                 drop_path_rate=config.drop_path, tanh=tanh,
                                                 in_chans=4 if scene == 'outdoor' else 5)
     elif config.task == 'channel_estimation':
-        import models.channel_estimation as task_model
-        assert config.base_arch in list(task_model.__dict__.keys()),\
-            print(f"This model architecture ({config.base_arch}) is not available!")
-        model = task_model.__dict__[config.base_arch]() 
+        model = TaskModel.__dict__[config.base_arch]() 
 
     else:
         # TODO
@@ -134,6 +147,7 @@ if __name__ == "__main__":
                             for your model class as task_model")
         # You can also build your model class here in this cell and then change the two following lines accordingly
         #  
+    
     # Load the model checkpoint
     print(f"Loading pre-trained checkpoint from: {config.base_model_path} ...")
     msg = model.load_model_checkpoint(checkpoint_path=config.base_model_path)
@@ -169,20 +183,10 @@ if __name__ == "__main__":
 
     print(f"criterion selected: {str(criterion)}")
 
-
-    if config.task == "segmentation":
-        from finetuning_engines.segmentation import train_one_epoch, evaluate
-    elif config.task in ["sensing", "signal_identification"]:
-        from finetuning_engines.sensing import train_one_epoch, evaluate
-    elif config.task == "positioning":
-        from finetuning_engines.positioning import train_one_epoch, evaluate
-    elif config.task == "channel_estimation":
-        from mae.tasks.channel_estimation.channel_estimation import train_one_epoch, evaluate
-    else:
-        # TODO
-        assert False, print("Replace this line with import statment \
-                            for your finetuing engine script with train_one_epoch and evaluate functions")
-        # You can also build your functions here in this cell.
+    # TODO
+    # assert False, print("Replace this line with import statment \
+    #                     for your finetuing engine script with train_one_epoch and evaluate functions")
+    # You can also build your functions here in this cell.
     
     print(f"Training for {config.epochs} epochs..")
     start_time = time.time()
