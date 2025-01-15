@@ -1,12 +1,12 @@
-experiment_name: 7jan_positioning                   # Set a name for your experiment
+experiment_name: 8jan_positioning                   # Set a name for your experiment
 
 # Task
 task: 'positioning'  # Options: ['segmenation', 'sensing', 'signal_identification', 'positioning', 'signal_identification', 'custom']
 data_path: '/home/elsayedmohammed/datasets/5g_nr_positioning' # specifiy the datset path
 
 # Base Model
-base_arch: vit_medium_patch16 # Options: ['vit_small_patch16', 'vit_medium_patch16', 'vit_large_patch16']
-base_model_path: '/home/elsayedmohammed/vit-models/pretrained_medium_75.pth' # Specifiy the path of base model in your system
+base_arch: vit_small_patch16 # Options: ['vit_small_patch16', 'vit_medium_patch16', 'vit_large_patch16']
+base_model_path: '/home/elsayedmohammed/vit-models/pretrained_small_75.pth' # Specifiy the path of base model in your system
 
 # Model parameters
 num_classes: 3                          # Number of target classes for the model

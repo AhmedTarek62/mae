@@ -200,7 +200,7 @@ class SegmentationViT(nn.Module):
         return msg
     
 
-def vit_small_patch16_dec512d8b(**kwargs):
+def vit_small_patch16(**kwargs):
     model = SegmentationViT(
         patch_size=16, embed_dim=512, in_chans=1, depth=12, num_heads=8,
         decoder_embed_dim=256, decoder_depth=2, decoder_num_heads=16,

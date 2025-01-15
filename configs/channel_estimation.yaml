@@ -1,12 +1,12 @@
-experiment_name: 7jan_channel_estimation                  # Set a name for your experiment
+experiment_name: 9jan_channel_estimation                  # Set a name for your experiment
 
 # Task
 task: 'channel_estimation'  # Options: ['segmenation', 'sensing', 'signal_identification', 'positioning', 'signal_identification', 'custom']
 data_path: '/home/elsayedmohammed/datasets/channel_estimation_dataset' # specifiy the datset path
 
 # Base Model
-base_arch: vit_medium_patch16 # Options: ['vit_small_patch16', 'vit_medium_patch16', 'vit_large_patch16']
-base_model_path: '/home/elsayedmohammed/vit-models/pretrained_medium_75.pth' # Specifiy the path of base model in your system
+base_arch: vit_small_patch16 # Options: ['vit_small_patch16', 'vit_medium_patch16', 'vit_large_patch16']
+base_model_path: '/home/elsayedmohammed/vit-models/pretrained_small_75.pth' # Specifiy the path of base model in your system
 
 # Model parameters
 num_classes: 3                          # Number of target classes for the model
@@ -29,7 +29,7 @@ smoothing: 0                            # Cross entropy smoothing parameter
 
 # Dataset and output settings
 output_dir: '/home/elsayedmohammed/outputs'   # Directory to store output files (logs, checkpoints)
-device: "cuda:0"                          # Device to use for training (e.g., 'cuda' or 'cpu')
+device: "cuda:1"                          # Device to use for training (e.g., 'cuda' or 'cpu')
 num_workers: 10                         # Number of data loader workers
 pin_mem: true                           # Use pinned memory for data loading
 
