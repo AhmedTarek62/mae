@@ -24,7 +24,7 @@ class TaskModel(nn.Module):
     It incorporates components from Masked Autoencoders (MAE) to handle image patches and reconstruction tasks.
     """
 
-    def __init__(self, img_size=224, patch_size=16, in_chans=1,
+    def __init__(self, input_size=224, patch_size=16, in_chans=1,
                  out_chans=3, embed_dim=1024, depth=24, num_heads=16,
                  decoder_embed_dim=512, decoder_depth=8, decoder_num_heads=16,
                  mlp_ratio=4., norm_layer=nn.LayerNorm):
@@ -34,7 +34,7 @@ class TaskModel(nn.Module):
         # MAE encoder specifics
 
         ## 1. Patch Embedding
-        self.patch_embed = PatchEmbed(img_size, patch_size, in_chans, embed_dim)
+        self.patch_embed = PatchEmbed(input_size, patch_size, in_chans, embed_dim)
         num_patches = self.patch_embed.num_patches
 
         ## 2. Class tokenization (for the entire image)

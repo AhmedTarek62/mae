@@ -46,6 +46,8 @@ if __name__ == "__main__":
     print(f"The outputs path provided: {output_dir}")
 
     print(f"==== Loading all the configs..")
+    # model_params = config['model_params']
+    # print(f"model_params: {model_params}")
     config = FineTuningArgs(**config)
 
     print(f"==== Setting the device and random seed..")
@@ -56,32 +58,11 @@ if __name__ == "__main__":
     np.random.seed(config.seed)
 
     cudnn.benchmark = True # DEVELOPERS:check
-    # Import the task files
-    # if task == 'segmentation':
-    #     from tasks.segmentation.dataset import SegmentationDataset as TaskDataset
-    #     import tasks.segmentation.model as TaskModel
-    #     from tasks.segmentation.finetuning_engine import train_one_epoch, evaluate
-    # elif task == 'csi_sensing':
-    #     from tasks.csi_sensing.dataset import CSISensingDataset as TaskDataset
-    #     import tasks.csi_sensing.model as TaskModel
-    #     from tasks.csi_sensing.finetuning_engine import train_one_epoch, evaluate
-    # elif task == 'channel_estimation':
-    #     from tasks.channel_estimation.dataset import OfdmChannelEstimation_Dataset as TaskDataset
-    #     import tasks.channel_estimation.model as TaskModel
-    #     from tasks.channel_estimation.finetuning_engine import train_one_epoch, evaluate
-    # elif task == 'positioning':
-    #     from tasks.positioning.dataset import PositioningNR_Dataset as TaskDataset
-    #     import tasks.positioning.model as TaskModel
-    #     from tasks.positioning.finetuning_engine import train_one_epoch, evaluate
-    # elif task == 'signal_identification':
-    #     from tasks.signal_identification.dataset import SignalIdentificatio_Dataset as TaskDataset
-    #     import tasks.signal_identification.model as TaskModel
-    #     from tasks.signal_identification.finetuning_engine import train_one_epoch, evaluate
-    # else:
-    #     # TODO
-    #     assert False, print("Replace this line with import statment \
-    #                         for your dataset class as TasDataset")
-    #     # You can also build your dataset class here in this cell and then change the two following lines accordingly
+  
+    # TODO
+    # assert False, print("Replace this line with import statment \
+    #                     for your dataset class as TasDataset")
+    # You can also build your dataset class here in this cell and then change the two following lines accordingly
 
     TaskDataset = getattr(importlib.import_module(f"tasks.{task}.dataset"), "TaskDataset")
     TaskModel = importlib.import_module(f"tasks.{task}.model")
@@ -119,34 +100,8 @@ if __name__ == "__main__":
     assert config.base_arch in list(TaskModel.__dict__.keys()),\
         print(f"This model architecture ({config.base_arch}) is not available!")
 
-    if config.task == 'segmentation':
-        model = TaskModel.__dict__[config.base_arch]() 
+    model = TaskModel.__dict__[config.base_arch](**config.model_params)
 
-    elif config.task == 'sensing':
-        model = TaskModel.__dict__[config.base_arch](global_pool=config.global_pool,
-                                                    num_classes=config.num_classes,
-                                                    drop_path_rate=config.drop_path)    
-    elif config.task == 'signal_identification':
-        model = TaskModel.__dict__[config.base_arch](global_pool=config.global_pool,
-                                                    num_classes=config.num_classes,
-                                                    drop_path_rate=config.drop_path,
-                                                    in_chans=1)
-    elif config.task == 'positioning':
-        scene = "outdoor" # TODO: (DEVELOPERS)
-        tanh = False # TODO: (DEVELOPERS)
-        model = TaskModel.__dict__[config.base_arch](global_pool=config.global_pool, num_classes=config.num_classes,
-                                                drop_path_rate=config.drop_path, tanh=tanh,
-                                                in_chans=4 if scene == 'outdoor' else 5)
-    elif config.task == 'channel_estimation':
-        model = TaskModel.__dict__[config.base_arch]() 
-
-    else:
-        # TODO
-        assert False, print("Replace this line with import statment \
-                            for your model class as task_model")
-        # You can also build your model class here in this cell and then change the two following lines accordingly
-        #  
-    
     # Load the model checkpoint
     print(f"Loading pre-trained checkpoint from: {config.base_model_path} ...")
     msg = model.load_model_checkpoint(checkpoint_path=config.base_model_path)
@@ -160,8 +115,7 @@ if __name__ == "__main__":
     n_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
     print('Number of params (M): %.2f' % (n_parameters / 1.e6))
 
-
-    # TODO: Feel free to set your own loss function or LR scheduler
+    # TODO: Feel free to set your own loss function and/or LR scheduler
 
     import util.lr_decay as lrd
     from util.misc import NativeScalerWithGradNormCount as NativeScaler

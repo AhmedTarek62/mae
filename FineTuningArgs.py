@@ -32,8 +32,8 @@ class FineTuningArgs:
         num_workers (int): Number of data loader workers. Defaults to 10.
         pin_mem (bool): Whether to use pinned memory for data loading. Defaults to True.
     """
-    def __init__(self, base_model_path:str, data_path:str, task:str, num_classes:int=3, output_dir:str='./', batch_size:int=64, 
-                 epochs:int=50, save_every:int=10, input_size:int=224, drop_path:float=0.1, base_arch:str='seg_vit_medium_patch16', 
+    def __init__(self, base_model_path:str, data_path:str, task:str, model_params:dict, output_dir:str='./', batch_size:int=64, 
+                 epochs:int=50, save_every:int=10, base_arch:str='seg_vit_medium_patch16', 
                  smoothing:float=0, weight_decay:float=0.05, lr:float=None, blr:float=1e-3, layer_decay:float=0.75, 
                  min_lr:float=1e-6, warmup_epoch:int=5, device:str='cuda', seed:int=0, num_workers:int=10, pin_mem:bool=True):
         
@@ -50,8 +50,7 @@ class FineTuningArgs:
         # Model parameters
         self.base_model_path = base_model_path
         self.base_arch = base_arch
-        self.input_size = input_size
-        self.drop_path = drop_path
+        self.model_params = model_params
 
         # Optimizer parameters
         self.clip_grad = None
@@ -69,7 +68,6 @@ class FineTuningArgs:
 
         # Dataset parameters
         self.data_path = data_path
-        self.num_classes = num_classes
         self.output_dir = output_dir
         os.makedirs(self.output_dir, exist_ok=True)
         self.log_dir = os.path.join(self.output_dir, 'logs')
@@ -80,6 +78,4 @@ class FineTuningArgs:
         self.pin_mem = pin_mem
 
         self.accum_iter = 1 # TODO: remove this parameter!
-        self.global_pool = 'token' # TODO: Obly in sensing
-
 

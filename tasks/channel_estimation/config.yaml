@@ -9,9 +9,9 @@ base_arch: vit_small_patch16 # Options: ['vit_small_patch16', 'vit_medium_patch1
 base_model_path: '/home/elsayedmohammed/vit-models/pretrained_small_75.pth' # Specifiy the path of base model in your system
 
 # Model parameters
-num_classes: 3                          # Number of target classes for the model
-input_size: 224                         # Size of input images (height/width)
-drop_path: 0.1                          # Drop path rate for regularization
+model_params:
+  out_chans: 2                          # Number of target classes for the model
+
 
 # Training parameters
 batch_size: 64                          # Batch size for training
