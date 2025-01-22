@@ -8,6 +8,7 @@ __pycache__/
 *.gz
 *.pth
 *.h5
+*.zip
 
 test.ipynb
 Dataset Notebooks/
