@@ -113,6 +113,15 @@ def get_grad_norm_(parameters, norm_type: float = 2.0) -> torch.Tensor:
     return total_norm
 
 
+def save_best_chechpoint(args, output_dir, epoch, model):    
+    checkpoint_path = Path(output_dir) / ('best-checkpoint.pth')
+    to_save = {
+        'model': model.state_dict(),
+        'epoch': epoch,
+        'args': args,
+    }
+    torch.save(to_save, checkpoint_path)
+
 def save_model(args, output_dir, epoch, model, optimizer, loss_scaler):    
     checkpoint_path = Path(output_dir) / ('checkpoint-%s.pth' % str(epoch))
     to_save = {

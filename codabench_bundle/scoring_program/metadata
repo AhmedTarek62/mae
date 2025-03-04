@@ -1,2 +1,0 @@
-command: python3 score.py
-description: Compute scores for the competition

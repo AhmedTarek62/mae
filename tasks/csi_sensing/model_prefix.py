@@ -13,27 +13,36 @@ from functools import partial
 
 import torch
 import torch.nn as nn
+
 import timm.models.vision_transformer
 from timm.layers import trunc_normal_
 
+
 class TaskModel(timm.models.vision_transformer.VisionTransformer):
-    """ 
-        Vision Transformer with support for global average pooling
+    """ Vision Transformer with support for global average pooling
     """
-    def __init__(self, global_pool, tanh=False, head_layers:int=1, **kwargs):
+    def __init__(self, global_pool, tanh=False, head_layers=1,**kwargs):
         super(TaskModel, self).__init__(**kwargs)
-        num_classes = kwargs['num_classes']
         self.global_pool = global_pool
         self.tanh = tanh
-        self.head_layers = head_layers
-
-        # Task head
+        # Task Head
+        num_classes = kwargs['num_classes']
         layers = []
         for i in range(head_layers - 1):
             layers.extend([nn.Linear(self.embed_dim, self.embed_dim), nn.ReLU()])
         layers.append(nn.Linear(self.embed_dim, num_classes))
-        self.head = nn.Sequential(*layers) if self.head_layers > 1 else nn.Linear(self.embed_dim, num_classes)
+        self.head = nn.Sequential(*layers) if head_layers > 1 else nn.Linear(self.embed_dim, num_classes)
 
+        # Prefix parameters
+        self.prefix_length = 1  # Number of prefix tokens per layer
+        self.prefix_dim = 30  # Prefix embedding dimension
+        self.prefix_embedding = nn.Parameter(torch.randn(1, self.prefix_length, self.prefix_dim))  # Trainable prefix
+
+        # Projection layer to match the model's embedding dimension
+        self.prefix_proj = nn.Linear(self.prefix_dim, self.embed_dim)
+
+        # Freeze encoder
+        # self.freeze_encoder()
 
     def freeze_encoder(self, num_blocks=None):
         if num_blocks is None:
@@ -46,8 +55,32 @@ class TaskModel(timm.models.vision_transformer.VisionTransformer):
         for param in self.patch_embed.proj.parameters():
             param.requires_grad = False
 
+
+    def forward_features_prefix(self, x: torch.Tensor) -> torch.Tensor:
+        B = x.shape[0]
+        x = self.patch_embed(x)  # Convert image to patch embeddings
+        x = self._pos_embed(x)
+        x = self.patch_drop(x)
+        
+        # Pass through Transformer blocks with prefix tuning
+        for block in self.blocks:
+            # Expand prefix for batch size
+            prefix_tokens = self.prefix_embedding.expand(B, -1, -1)  # (B, prefix_length, prefix_dim)
+
+            # Project prefix tokens to match model embedding dim
+            prefix_tokens = self.prefix_proj(prefix_tokens)  # (B, prefix_length, embed_dim)
+
+            # Concatenate prefix with hidden states before attention
+            x = torch.cat((prefix_tokens, x), dim=1)  # (B, prefix_length + num_patches, embed_dim)
+
+            # Apply Transformer block (which includes self-attention)
+            x = block(x)
+
+        x = self.norm(x)
+        return x
+    
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        x = self.forward_features(x)
+        x = self.forward_features_prefix(x)
         x = self.forward_head(x)
         if self.tanh:
             return torch.tanh(x)
@@ -69,22 +102,15 @@ class TaskModel(timm.models.vision_transformer.VisionTransformer):
         msg = self.load_state_dict(checkpoint_model, strict=False)
         trunc_normal_(self.head.weight, std=2e-5)
         return msg
-    
 
 def vit_small_patch16(**kwargs):
     model = TaskModel(
         patch_size=16, embed_dim=512, depth=12, num_heads=8, mlp_ratio=4, qkv_bias=True,
         norm_layer=partial(nn.LayerNorm, eps=1e-6), **kwargs)
-    return model
+    return model  
 
 def vit_medium_patch16(**kwargs):
     model = TaskModel(
         patch_size=16, embed_dim=768, depth=12, num_heads=12, mlp_ratio=4, qkv_bias=True,
-        norm_layer=partial(nn.LayerNorm, eps=1e-6), **kwargs)
-    return model
-
-def vit_large_patch16(**kwargs):
-    model = TaskModel(
-        patch_size=16, embed_dim=1024, depth=24, num_heads=16, mlp_ratio=4, qkv_bias=True,
         norm_layer=partial(nn.LayerNorm, eps=1e-6), **kwargs)
     return model

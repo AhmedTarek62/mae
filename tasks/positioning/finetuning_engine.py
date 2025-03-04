@@ -12,7 +12,7 @@
 import math
 import sys
 from typing import Iterable, Optional
-
+import numpy as np
 import torch
 
 from timm.data import Mixup
@@ -21,8 +21,8 @@ from tqdm import tqdm
 
 def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
                     data_loader: Iterable, optimizer: torch.optim.Optimizer,
-                    device: torch.device, epoch: int, loss_scaler, max_norm: float = 0,
-                    mixup_fn: Optional[Mixup] = None, args=None):
+                    device: torch.device, epoch: int, n_epochs:int, loss_scaler, 
+                    lr: float, lr_args:dict, max_norm: float = 0):
     """
     Train a model for one epoch.
 
@@ -54,47 +54,34 @@ def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
         - The learning rate is adjusted dynamically at each iteration using the provided scheduler.
         - Loss values and learning rates are logged and returned for analysis.
     """
-    assert args, print("Namespace (args) cannot be skipped.")
-
     model.train(True)
     optimizer.zero_grad()
     losses = []          # To store loss values
     learning_rates = []  # To store learning rates
     
 
-    with tqdm(data_loader, desc=f'Epoch {epoch}/{args.epochs}', unit='batch') as pbar:
+    with tqdm(data_loader, desc=f'Epoch {epoch}/{n_epochs}', unit='batch') as pbar:
         for data_iter_step, (samples, targets) in enumerate(pbar):
-            # we use a per iteration (instead of per epoch) lr scheduler
-            lr_sched.adjust_learning_rate(optimizer, data_iter_step / len(data_loader) + epoch, args)
-            
-            
             samples = samples.to(device, non_blocking=True)
             targets = targets.to(device, non_blocking=True)
-            
-            if mixup_fn:
-                samples, targets = mixup_fn(samples, targets)
-            
+
+            optimizer.zero_grad()
             with torch.amp.autocast('cuda'):
                 outputs = model(samples)
                 loss = criterion(outputs, targets)
-            
             loss_value = loss.item()
-
             if not math.isfinite(loss_value):
                 print("Loss is {}, stopping training".format(loss_value))
                 sys.exit(1)
-            
-            loss_scaler(loss, optimizer, clip_grad=max_norm,
-                    parameters=model.parameters(), create_graph=False, update_grad=True)
             pbar.set_postfix({'loss': loss_value})
-
-            optimizer.zero_grad()
-
             # Store loss value
             losses.append(loss_value)
             # Capture current learning rates
             for group in optimizer.param_groups:
                 learning_rates.append(group["lr"])
+
+            loss.backward()
+            optimizer.step()
 
         # Compute the average loss and learning rates
         avg_loss = sum(losses) / len(losses) if losses else 0
@@ -107,12 +94,14 @@ def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
             "learning_rates": learning_rates
         }
 
+def reverse_normalize(x, coord_min, coord_max):
+    return (x + 1) / 2 * (coord_max - coord_min) + coord_min
 
 @torch.no_grad()
-def evaluate(data_loader, model, criterion, device):
+def evaluate(data_loader, model, criterion, device, coords=None):
 
     losses = []          # To store loss values
-
+    distances = []
     # switch to evaluation mode
     model.eval()
     with tqdm(data_loader, desc=f'Validation..', unit='batch') as pbar:
@@ -124,6 +113,12 @@ def evaluate(data_loader, model, criterion, device):
             with torch.amp.autocast('cuda'):
                 outputs = model(samples)
                 loss = criterion(outputs, targets)
+                if coords:
+                    pred_position = reverse_normalize(outputs.cpu(),
+                                                      coords['min'], coords['max'])
+                    position = reverse_normalize(targets.cpu(),
+                                                 coords['min'], coords['max'])
+                    distances.extend(torch.sqrt(torch.sum((pred_position - position) ** 2, dim=1)))
 
             batch_size = samples.shape[0]
             
@@ -131,8 +126,9 @@ def evaluate(data_loader, model, criterion, device):
     
     # Compute the average loss and learning rates
     avg_loss = sum(losses) / len(losses) if losses else 0
-
+    distances = np.array(distances)
     return {
         "avg_loss": avg_loss,
-        "avg_acc": None
-        }
+        "avg_acc": None,
+        "distances": distances
+        } 

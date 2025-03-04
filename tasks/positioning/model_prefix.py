@@ -15,9 +15,9 @@ import torch
 import torch.nn as nn
 
 from timm.layers import trunc_normal_
-from ..csi_sensing.model import TaskModel as VisionTransformer
+from ..csi_sensing.model_prefix import TaskModel as VisionTransformerWithPrefix
 
-class TaskModel(VisionTransformer):
+class TaskModel(VisionTransformerWithPrefix):
     """ Vision Transformer with support for global average pooling
     """
     def __init__(self, scene:str='outdoor', **kwargs):
@@ -45,10 +45,6 @@ class TaskModel(VisionTransformer):
                 else:
                     checkpoint_model['patch_embed.proj.weight'] = checkpoint_model['patch_embed.2.proj.weight'].expand(-1, 5, -1, -1)
 
-                # # Outdoor                
-                # checkpoint_model['patch_embed.proj.weight'] = checkpoint_model['patch_embed.proj.weight'].expand(-1, 4, -1, -1)
-                # # Indoor
-                # checkpoint_model['patch_embed.proj.weight'] = checkpoint_model['patch_embed.proj.weight'].expand(-1, 5, -1, -1)
             msg = self.load_state_dict(checkpoint_model, strict=False)
             trunc_normal_(self.head.weight, std=2e-5)
             return msg
@@ -64,11 +60,3 @@ def vit_medium_patch16(**kwargs):
         patch_size=16, embed_dim=768, depth=12, num_heads=12, mlp_ratio=4, qkv_bias=True,
         norm_layer=partial(nn.LayerNorm, eps=1e-6), **kwargs)
     return model
-
-def vit_large_patch16(**kwargs):
-    model = TaskModel(
-        patch_size=16, embed_dim=1024, depth=24, num_heads=16, mlp_ratio=4, qkv_bias=True,
-        norm_layer=partial(nn.LayerNorm, eps=1e-6), **kwargs)
-    return model
-
-

@@ -13,27 +13,34 @@ from functools import partial
 
 import torch
 import torch.nn as nn
+
 import timm.models.vision_transformer
 from timm.layers import trunc_normal_
 
+
 class TaskModel(timm.models.vision_transformer.VisionTransformer):
-    """ 
-        Vision Transformer with support for global average pooling
+    """ Vision Transformer with support for global average pooling
     """
-    def __init__(self, global_pool, tanh=False, head_layers:int=1, **kwargs):
+    def __init__(self, global_pool, tanh=False, head_layers=1,**kwargs):
         super(TaskModel, self).__init__(**kwargs)
-        num_classes = kwargs['num_classes']
         self.global_pool = global_pool
         self.tanh = tanh
-        self.head_layers = head_layers
-
-        # Task head
+        # Task Head
+        num_classes = kwargs['num_classes']
         layers = []
         for i in range(head_layers - 1):
             layers.extend([nn.Linear(self.embed_dim, self.embed_dim), nn.ReLU()])
         layers.append(nn.Linear(self.embed_dim, num_classes))
-        self.head = nn.Sequential(*layers) if self.head_layers > 1 else nn.Linear(self.embed_dim, num_classes)
+        self.head = nn.Sequential(*layers) if head_layers > 1 else nn.Linear(self.embed_dim, num_classes)
 
+        prefix_dim = 30
+        self.prefix_embedding = nn.Parameter(torch.randn(1, 1, prefix_dim))
+        self.prefix_proj = nn.Sequential(
+            nn.Linear(self.embed_dim + prefix_dim, self.embed_dim),
+            nn.ReLU(),
+            nn.Linear(self.embed_dim, self.embed_dim)
+        )
+        # self.freeze_encoder()
 
     def freeze_encoder(self, num_blocks=None):
         if num_blocks is None:
@@ -46,8 +53,25 @@ class TaskModel(timm.models.vision_transformer.VisionTransformer):
         for param in self.patch_embed.proj.parameters():
             param.requires_grad = False
 
+
+    def forward_features_prefix(self, x: torch.Tensor) -> torch.Tensor:
+        B = x.shape[0]
+        x = self.patch_embed(x)  # Convert image to patch embeddings
+        x = self._pos_embed(x)
+        x = self.patch_drop(x)
+        
+        # Expand and concatenate prefix embeddings
+        prefix_tokens = self.prefix_embedding.expand(B, x.shape[1], -1)  # (B, num_prefix_tokens, embed_dim)
+        x = torch.cat((prefix_tokens, x), dim=-1)  # Prepend prefix tokens to the input
+        x = self.prefix_proj(x)
+
+        x = self.norm_pre(x)
+        x = self.blocks(x)
+        x = self.norm(x)
+        return x
+    
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        x = self.forward_features(x)
+        x = self.forward_features_prefix(x)
         x = self.forward_head(x)
         if self.tanh:
             return torch.tanh(x)
@@ -70,7 +94,6 @@ class TaskModel(timm.models.vision_transformer.VisionTransformer):
         trunc_normal_(self.head.weight, std=2e-5)
         return msg
     
-
 def vit_small_patch16(**kwargs):
     model = TaskModel(
         patch_size=16, embed_dim=512, depth=12, num_heads=8, mlp_ratio=4, qkv_bias=True,
@@ -80,11 +103,5 @@ def vit_small_patch16(**kwargs):
 def vit_medium_patch16(**kwargs):
     model = TaskModel(
         patch_size=16, embed_dim=768, depth=12, num_heads=12, mlp_ratio=4, qkv_bias=True,
-        norm_layer=partial(nn.LayerNorm, eps=1e-6), **kwargs)
-    return model
-
-def vit_large_patch16(**kwargs):
-    model = TaskModel(
-        patch_size=16, embed_dim=1024, depth=24, num_heads=16, mlp_ratio=4, qkv_bias=True,
         norm_layer=partial(nn.LayerNorm, eps=1e-6), **kwargs)
     return model
