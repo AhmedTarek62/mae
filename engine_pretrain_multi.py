@@ -206,8 +206,9 @@ def evaluate_iq(data_loader: Iterable, model: torch.nn.Module,
         time_mask = time_mask.to(device, non_blocking=True)
 
         with torch.cuda.amp.autocast():
-            loss, pred, mae_mask, token_mask = model.forward('iq', x_pad, mask_ratio=mask_ratio, time_mask=time_mask)
+            loss, pred, mae_mask, extras = model.forward('iq', x_pad, mask_ratio=mask_ratio, time_mask=time_mask)
 
+        token_mask = extras["token_mask"]
         loss_val = float(loss.item())
         metric_logger.update(loss=loss_val)
 
