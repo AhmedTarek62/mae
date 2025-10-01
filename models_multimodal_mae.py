@@ -439,13 +439,13 @@ class MultimodalMAE(nn.Module):
     def _encode(
             self,
             tokens_masked: torch.Tensor,  # (N, L_keep, D)
-            pe_enc: torch.Tensor,  # (1, 1+L_keep, D) (CLS + time/grid)
+            cls_pe: torch.Tensor,
             modality: str  # 'vision' | 'iq' (for optional conditional LN)
     ) -> torch.Tensor:
         # prepend CLS (already position-encoded in pe_enc[ :, :1 ])
         cls = self.cls_token.expand(tokens_masked.size(0), -1, -1)
         x = torch.cat([cls, tokens_masked], dim=1)  # (N, 1+L_keep, D)
-        x = x + pe_enc  # add PE (broadcast)
+        x[:, :1, :] = x[:, :1, :] + cls_pe
         # (optional) conditional LN FiLM at the input (light touch)
         if getattr(self, "use_conditional_ln", False):
             g = self.mod_ln_scale[modality]
@@ -514,14 +514,14 @@ class MultimodalMAE(nn.Module):
     ):
         # tokenize
         tok = self.vis_patch_embed(imgs)  # (N, L, D)
+        # add encoder positional embeddings
+        tok = tok + self.vis_pos_embed[:, 1:, :]
         # mask
         tok_masked, mae_mask, ids_restore = self.vis_random_masking(tok, mask_ratio)
-        # encoder PE (CLS + per-token)
-        # slice vision PE to 1+L_keep and broadcast
-        L_keep = tok_masked.size(1)
-        pe_enc = torch.cat([self.vis_pos_embed[:, :1, :], self.vis_pos_embed[:, 1:1 + L_keep, :]], dim=1)
+        # encoder PE (CLS)
+        cls_pe = self.vis_pos_embed[:, :1, :]  # (1,1,D)
         # encode
-        x_latent = self._encode(tok_masked, pe_enc, modality='vision')
+        x_latent = self._encode(tok_masked, cls_pe, modality='vision')
         # decoder PE uses full length (1+L)
         L = ids_restore.size(1)
         pe_dec = torch.cat([self.vis_dec_pos_embed[:, :1, :], self.vis_dec_pos_embed[:, 1:1 + L, :]], dim=1)
@@ -622,19 +622,12 @@ class MultimodalMAE(nn.Module):
             tok_masked, mae_mask, ids_restore = self.iq_random_masking(tok, token_mask, mask_ratio)
 
         # 6) Encoder PE (CLS + kept tokens)
-        L_keep = tok_masked.size(1)
-        # Use first S positions of decoder/encoder time tables; they’re fixed-size, so slice
-        pe_time_enc = self.iq_time_pos_embed[:, :1, :].clone()  # CLS time slot
-        pe_time_slice = self.iq_time_pos_embed[:, 1:1 + S, :].repeat_interleave(C, dim=1)
-        pe_ant_slice = self.iq_ant_embed(ant_ids).unsqueeze(0)
-        pe_full = torch.cat([pe_time_enc, pe_time_slice + pe_ant_slice], dim=1)  # (1, 1+L, D)
-        pe_enc = torch.cat([pe_full[:, :1, :], pe_full[:, 1:1 + L_keep, :]], dim=1)  # (1, 1+L_keep, D)
+        cls_pe = self.iq_time_pos_embed[:, :1, :] # CLS time slot
 
         # 7) Encode
-        x_latent = self._encode(tok_masked, pe_enc, modality='iq')
+        x_latent = self._encode(tok_masked, cls_pe, modality='iq')
 
         # 8) Decoder PE uses full L
-        L = ids_restore.size(1)
         pe_time_dec = self.iq_dec_time_pos_embed[:, :1, :].clone()
         pe_time_slice_d = self.iq_dec_time_pos_embed[:, 1:1 + S, :].repeat_interleave(C, dim=1)
         pe_ant_slice_d = self.iq_dec_ant_embed(ant_ids).unsqueeze(0)
@@ -673,3 +666,75 @@ class MultimodalMAE(nn.Module):
             return self.forward_iq(x, time_mask, mask_ratio=mask_ratio, use_ant_mask=use_ant_mask)
         else:
             raise ValueError(f"Unknown modality: {modality}")
+
+
+# --- Presets (registry) -------------------------------------------------------
+def mae_multi_micro(**kwargs):
+    """
+    Tiny config to smoke-test end-to-end (fast).
+    """
+    return MultimodalMAE(
+        embed_dim=128, depth=4, num_heads=4, mlp_ratio=4.0,
+        decoder_embed_dim=128, decoder_depth=2, decoder_num_heads=4,
+        vis_img_size=224, vis_patch=16, vis_in_chans=1,
+        iq_segment_len=16, iq_hop=16, iq_max_tokens=256, iq_max_antennas=8,
+        use_conditional_ln=True,
+        norm_pix_loss=kwargs.pop("norm_pix_loss", False),
+        norm_seg_loss=kwargs.pop("norm_seg_loss", False),
+        iq_use_ant_mask=kwargs.pop("iq_use_ant_mask", False),
+    )
+
+
+def mae_multi_small(**kwargs):
+    """
+    ~20–30M params; good default.
+    """
+    return MultimodalMAE(
+        embed_dim=384, depth=8, num_heads=6, mlp_ratio=4.0,
+        decoder_embed_dim=256, decoder_depth=4, decoder_num_heads=8,
+        vis_img_size=224, vis_patch=16, vis_in_chans=1,
+        iq_segment_len=4096, iq_hop=4096, iq_max_tokens=256, iq_max_antennas=16,
+        use_conditional_ln=True,
+        norm_pix_loss=kwargs.pop("norm_pix_loss", False),
+        norm_seg_loss=kwargs.pop("norm_seg_loss", False),
+        iq_use_ant_mask=kwargs.pop("iq_use_ant_mask", False),
+    )
+
+
+def mae_multi_base(**kwargs):
+    """
+    ~40–60M params.
+    """
+    return MultimodalMAE(
+        embed_dim=512, depth=12, num_heads=8, mlp_ratio=4.0,
+        decoder_embed_dim=256, decoder_depth=6, decoder_num_heads=8,
+        vis_img_size=224, vis_patch=16, vis_in_chans=1,
+        iq_segment_len=4096, iq_hop=4096, iq_max_tokens=256, iq_max_antennas=32,
+        use_conditional_ln=True,
+        norm_pix_loss=kwargs.pop("norm_pix_loss", False),
+        norm_seg_loss=kwargs.pop("norm_seg_loss", False),
+        iq_use_ant_mask=kwargs.pop("iq_use_ant_mask", False),
+    )
+
+
+def mae_multi_large(**kwargs):
+    """
+    ~80M params+ (heavier).
+    """
+    return MultimodalMAE(
+        embed_dim=768, depth=12, num_heads=12, mlp_ratio=4.0,
+        decoder_embed_dim=512, decoder_depth=8, decoder_num_heads=16,
+        vis_img_size=224, vis_patch=16, vis_in_chans=1,
+        iq_segment_len=4096, iq_hop=4096, iq_max_tokens=256, iq_max_antennas=32,
+        use_conditional_ln=True,
+        norm_pix_loss=kwargs.pop("norm_pix_loss", False),
+        norm_seg_loss=kwargs.pop("norm_seg_loss", False),
+        iq_use_ant_mask=kwargs.pop("iq_use_ant_mask", False),
+    )
+
+
+# Optional aliases to match your naming patterns
+mae_vit_multi_micro = mae_multi_micro
+mae_vit_multi_small = mae_multi_small
+mae_vit_multi_base = mae_multi_base
+mae_vit_multi_large = mae_multi_large
