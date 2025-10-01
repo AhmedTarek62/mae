@@ -41,6 +41,14 @@ class CSIWiFi(Dataset):
             csi = self.transforms(csi)
         return csi, torch.as_tensor([1,], dtype=torch.long)
 
+    def get_raw_item(self, index):
+        sample_name = self.file_list[index]
+        csi = loadmat(os.path.join(self.root_dir, sample_name))['CSIamp']
+        csi = csi.reshape(3, 114, -1)
+        if self.downsampled:
+            csi = csi[:, :, ::4]
+        return csi
+
     def __len__(self):
         if self.augment_transforms:
             return self.factor * len(self.file_list)

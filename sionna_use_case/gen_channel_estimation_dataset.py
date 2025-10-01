@@ -81,8 +81,8 @@ if not estimate_cov:
     time_cov_mat = np.load('time_cov_mat.npy')
     space_cov_mat = np.load('space_cov_mat.npy')
 
-mode = sys.argv[1]
-data_dir_path = Path(f'../../datasets/channel_estimation_dataset/{mode}')
+mode = 'val'
+data_dir_path = Path(f'../../datasets/test/{mode}')
 os.makedirs(data_dir_path, exist_ok=True)
 all_snr_db = np.linspace(-10.0, 20.0, 30)
 batch_size = 64
@@ -91,7 +91,7 @@ for i in tqdm(range(num_it), total=num_it, desc='Iteration'):
     x = qam_source([batch_size, 1, 1, rg.num_data_symbols])
     x_rg = rg_mapper(x)
     if mode == 'train':
-        snr_db = np.random.choice([0.0, 15.0], (batch_size,))
+        snr_db = 5 * np.random.random((batch_size,)) + 10
     else:
         snr_db = np.random.choice(all_snr_db, (batch_size,))
     no = tf.pow(10.0, -snr_db / 10.0)

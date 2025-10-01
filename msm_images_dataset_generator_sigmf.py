@@ -16,7 +16,7 @@ def read_sig_mf(recording_name: str):
     recording = sigmffile.fromfile(recording_name)
     freq_s = recording.get_global_info()[recording.SAMPLE_RATE_KEY]
     if 'ism' in recording_name:
-        signal = recording.read_samples(start_index=0, count=1_500_000_000)
+        signal = recording.read_samples(start_index=0, count=1_500_000)
     else:
         signal = recording.read_samples()
     return signal, freq_s

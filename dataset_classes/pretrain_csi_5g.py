@@ -40,6 +40,15 @@ class CSI5G(Dataset):
             csi = self.transforms(csi)
         return csi, torch.as_tensor([1,], dtype=torch.long)
 
+    def get_raw_item(self, index):
+        if index >= len(self.file_list):
+            index %= len(self.file_list)
+        sample_name = self.file_list[index]
+        csi = np.abs(loadmat(os.path.join(self.root_dir, sample_name))['cfr']).transpose(1, 0, 2)
+        if self.downsampled:
+            csi = csi[:, :, ::4]
+        return csi
+
     def __len__(self):
         if self.augment_transforms:
             return int(3.5 * len(self.file_list))

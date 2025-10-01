@@ -77,6 +77,16 @@ class CSISensingDataset(Dataset):
             csi = self.transforms(csi)
         return csi, torch.as_tensor(label_index, dtype=torch.long)
 
+    def get_raw_item(self, index):
+        sample_name = self.file_list[index]
+        csi = loadmat(os.path.join(self.root_dir, sample_name))['CSIamp']
+        csi = csi.reshape(3, 114, -1)
+        if self.downsampled:
+            csi = csi[:, :, ::4]
+        label_name = self._split_at_number(sample_name)
+        label_index = self.labels.index(label_name)
+        return csi, label_index
+
     def __len__(self):
         return len(self.file_list)
 

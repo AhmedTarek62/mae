@@ -11,6 +11,7 @@ import seaborn as sns
 from tqdm import tqdm
 import numpy as np
 from advanced_finetuning.lora import create_lora_model
+from advanced_finetuning.prefix import create_prefix_tuning_model
 
 
 def main(args):
@@ -27,8 +28,9 @@ def main(args):
     test_loader = DataLoader(test_set, batch_size=batch_size, num_workers=num_workers, shuffle=True)
     with torch.no_grad():
         ckpt = torch.load(ckpt_path, map_location=device)['model']
-        model = getattr(models_vit, model_name)(global_pool='token', num_classes=6)
+        model = getattr(models_vit, model_name)(global_pool='token', num_classes=6, num_prefix_tokens=1, prefix_tuning=True)
         # model = create_lora_model(model, lora_rank=40, lora_alpha=1)
+        model = create_prefix_tuning_model(model, 'token')
         model.load_state_dict(ckpt, strict=True)
 
         model = model.to(device)
@@ -65,7 +67,7 @@ def main(args):
     # Adjust axis labels for the second row, first column (index 3) and third row, second column (index 7)
     ax.set_ylabel('True label', fontsize=16)
     ax.set_xlabel('Predicted label', fontsize=16)
-    plt.title("Pretrained with Positioning Data", fontsize=16)
+    plt.title("Pretrained on Spect + Prefix Tuning (1 Token)", fontsize=16)
     # Adjust layout to avoid overlap
     plt.tight_layout()
 
