@@ -87,6 +87,15 @@ def get_args_parser():
     return p
 
 
+def h5_worker_init_fn(_):
+    ds = torch.utils.data.get_worker_info().dataset
+    if hasattr(ds, "_h5") and ds._h5 is not None:
+        try: ds._h5.close()
+        except Exception: pass
+        ds._h5 = None
+        ds._cur_path = None
+
+
 def build_spect_loader(args, img_size=224):
     transform_train = transforms.Compose([
         transforms.functional.pil_to_tensor,
@@ -115,12 +124,12 @@ def build_iq_loaders(args):
 
     dl_tr = DataLoader(
         ds_tr, sampler=samp_tr, batch_size=args.batch_size_iq,
-        num_workers=args.num_workers, pin_memory=args.pin_mem, drop_last=False,
+        num_workers=args.num_workers, pin_memory=args.pin_mem, drop_last=False, worker_init_fn=h5_worker_init_fn
         # collate_fn=pad_collate,
     )
     dl_val = DataLoader(
         ds_val, sampler=samp_val, batch_size=args.batch_size_iq,
-        num_workers=args.num_workers, pin_memory=args.pin_mem, drop_last=False,
+        num_workers=args.num_workers, pin_memory=args.pin_mem, drop_last=False, worker_init_fn=h5_worker_init_fn
         # collate_fn=pad_collate,
     )
     return (ds_tr, dl_tr), (ds_val, dl_val)
