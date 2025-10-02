@@ -205,7 +205,12 @@ def evaluate_iq(data_loader: Iterable, model: torch.nn.Module,
     total_masked_real = 0
     total_real = 0
 
-    for x_pad, time_mask, lengths in metric_logger.log_every(data_loader, 10, header):
+    for batch in metric_logger.log_every(data_loader, 10, header):
+        if len(batch) == 3:
+            x_pad, time_mask, lengths = batch
+        else:
+            x_pad = batch
+            time_mask = torch.ones((x_pad.shape[0], x_pad.shape[-1]), device=x_pad.device, dtype=torch.bool)
         x_pad = x_pad.to(device, non_blocking=True)
         time_mask = time_mask.to(device, non_blocking=True)
 
