@@ -1,4 +1,6 @@
+import os
 import h5py
+import glob
 from torch import nn
 import torch.nn.functional as F
 import json
@@ -229,6 +231,86 @@ class IQDatasetH5(Dataset):
             return x, torch.as_tensor([x_ang, y_ang, z_ang], dtype=torch.float32)
         elif self.mode == 'amc':
             return x, torch.tensor(self.labels.index(y_mod.decode('utf-8')), dtype=torch.long)
+
+
+class IQDatasetH5Sharded(Dataset):
+    def __init__(self, shard_paths, resampler=None, stats=None, mode='pretrain'):
+        if isinstance(shard_paths, str):
+            if os.path.isdir(shard_paths):
+                shard_paths = sorted(glob.glob(os.path.join(shard_paths, "*.h5")))
+            else:
+                shard_paths = sorted(glob.glob(shard_paths))
+        assert isinstance(shard_paths, (list, tuple)) and len(shard_paths) > 0
+        self.paths = list(shard_paths)
+        self.resampler = resampler
+        self.stats = stats if stats is not None else {"mean": (0.0, 0.0), "std": (0.3396, 0.3525)}
+        self.mode = mode.lower()
+        if self.mode == "amc":
+            self.labels = ('bpsk','cw','pam4','qam','qam64','qpsk','sine')
+
+        # build global index
+        self.index = []  # (path_idx, local_idx)
+        self._sizes = []
+        for pi, p in enumerate(self.paths):
+            with h5py.File(p, "r") as f:
+                n = f["iq_data"].shape[0]
+            self._sizes.append(n)
+            self.index.extend([(pi, i) for i in range(n)])
+
+        # lazy-open per worker / per current shard
+        self._h5 = None
+        self._cur_path = None
+        self._iq = self._mod = self._ang = None
+
+    def __len__(self):
+        return len(self.index)
+
+    def _open_if_needed(self, path):
+        if self._cur_path != path:
+            if self._h5 is not None:
+                try:
+                    self._h5.close()
+                except Exception: pass
+            # big raw chunk cache, SWMR on (read-only)
+            self._h5 = h5py.File(path, "r", libver="latest", swmr=True,
+                                 rdcc_nbytes=64*1024*1024, rdcc_nslots=1_000_003, rdcc_w0=0.25)
+            self._iq = self._h5["iq_data"]
+            self._mod = self._h5["modulation"]
+            self._ang = self._h5["angles"]
+            self._cur_path = path
+
+    def __getitem__(self, gidx):
+        pi, li = self.index[gidx]
+        path = self.paths[pi]
+        self._open_if_needed(path)
+
+        x_np = self._iq[li]                  # already (2,C,T) float32 from the sharder
+        x = torch.from_numpy(x_np)
+
+        if self.resampler is not None:
+            x = self.resampler(x, fs_hz=40e6)
+        if self.stats is not None:
+            mu = torch.tensor(self.stats["mean"], dtype=torch.float32).view(2, 1, 1)
+            sd = torch.tensor(self.stats["std"],  dtype=torch.float32).clamp_min(1e-6).view(2, 1, 1)
+            x = (x - mu) / sd
+
+        if self.mode == 'pretrain':
+            return x
+        elif self.mode == 'aoa':
+            az_deg, el_deg = self._ang[li]
+            el, az = np.deg2rad(el_deg), np.deg2rad(az_deg)
+            target = torch.tensor([np.cos(el)*np.cos(az),
+                                   np.cos(el)*np.sin(az),
+                                   np.sin(el)], dtype=torch.float32)
+            return x, target
+        elif self.mode == 'amc':
+            y_mod = self._mod[li]
+            if isinstance(y_mod, (bytes, np.bytes_, np.str_)):
+                y_mod = y_mod.decode('utf-8') if isinstance(y_mod, (bytes, np.bytes_)) else str(y_mod)
+                cls = self.labels.index(y_mod)
+            else:
+                cls = int(y_mod)
+            return x, torch.tensor(cls, dtype=torch.long)
 
 
 def pad_collate(batch):

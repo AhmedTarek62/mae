@@ -103,7 +103,11 @@ def train_one_epoch_multi(model: torch.nn.Module,
             imgs, _ = batch
             imgs = imgs.to(device, non_blocking=True)
         else:
-            x_pad, time_mask, lengths = batch
+            if len(batch) == 3:
+                x_pad, time_mask, lengths = batch
+            else:
+                x_pad = batch
+                time_mask = torch.ones((x_pad.shape[0], x_pad.shape[-1]), device=x_pad.device, dtype=torch.bool)
             x_pad = x_pad.to(device, non_blocking=True)
             time_mask = time_mask.to(device, non_blocking=True)
 

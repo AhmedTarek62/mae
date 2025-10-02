@@ -22,7 +22,7 @@ from util.misc import NativeScalerWithGradNormCount as NativeScaler
 
 # datasets
 from dataset_classes.spectrogram_images import SpectrogramImages
-from dataset_classes.iq_dataset import IQDatasetH5, pad_collate
+from dataset_classes.iq_dataset import IQDatasetH5, IQDatasetH5Sharded, pad_collate
 
 # model registry (presets live here)
 import models_multimodal_mae
@@ -65,7 +65,7 @@ def get_args_parser():
                    default=['../datasets/spectrogram_dataset', '../datasets/spectrogram_iqengine_dataset'],
                    type=str, nargs='+',
                    help='List of spectrogram roots')
-    p.add_argument('--iq_path', default='../datasets/train_256_100_256_22.h5', type=str)
+    p.add_argument('--iq_path', default='../datasets/train_iq', type=str)
 
     # Logging / env
     p.add_argument('--output_dir', default='./output_dir_multi')
@@ -106,7 +106,7 @@ def build_spect_loader(args, img_size=224):
 
 
 def build_iq_loaders(args):
-    ds = IQDatasetH5(args.iq_path)
+    ds = IQDatasetH5Sharded(args.iq_path)
     ds, _ = random_split(ds, [0.5, 0.5])
     ds_tr, ds_val = random_split(ds, [0.7, 0.3])
 
@@ -116,12 +116,12 @@ def build_iq_loaders(args):
     dl_tr = DataLoader(
         ds_tr, sampler=samp_tr, batch_size=args.batch_size_iq,
         num_workers=args.num_workers, pin_memory=args.pin_mem, drop_last=False,
-        collate_fn=pad_collate,
+        # collate_fn=pad_collate,
     )
     dl_val = DataLoader(
         ds_val, sampler=samp_val, batch_size=args.batch_size_iq,
         num_workers=args.num_workers, pin_memory=args.pin_mem, drop_last=False,
-        collate_fn=pad_collate,
+        # collate_fn=pad_collate,
     )
     return (ds_tr, dl_tr), (ds_val, dl_val)
 
