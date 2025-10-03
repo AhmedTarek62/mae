@@ -58,7 +58,7 @@ def get_args_parser():
     p.add_argument('--lr', type=float, default=None)
     p.add_argument('--blr', type=float, default=1e-3)
     p.add_argument('--min_lr', type=float, default=0.)
-    p.add_argument('--warmup_epochs', type=int, default=40)
+    p.add_argument('--warmup_epochs', type=int, default=0)
 
     # Data paths
     p.add_argument('--spect_paths',
@@ -109,7 +109,8 @@ def build_spect_loader(args, img_size=224):
     sampler = RandomSampler(ds)
     dl = DataLoader(
         ds, sampler=sampler, batch_size=args.batch_size_vis,
-        num_workers=args.num_workers, pin_memory=args.pin_mem, drop_last=True,
+        num_workers=args.num_workers, pin_memory=args.pin_mem,
+        drop_last=True,
     )
     return ds, dl
 
@@ -124,12 +125,14 @@ def build_iq_loaders(args):
 
     dl_tr = DataLoader(
         ds_tr, sampler=samp_tr, batch_size=args.batch_size_iq,
-        num_workers=args.num_workers, pin_memory=args.pin_mem, drop_last=False, worker_init_fn=h5_worker_init_fn
+        num_workers=args.num_workers,  pin_memory=args.pin_mem,
+        drop_last=False, worker_init_fn=h5_worker_init_fn
         # collate_fn=pad_collate,
     )
     dl_val = DataLoader(
         ds_val, sampler=samp_val, batch_size=args.batch_size_iq,
-        num_workers=args.num_workers, pin_memory=args.pin_mem, drop_last=False, worker_init_fn=h5_worker_init_fn
+        num_workers=args.num_workers,  pin_memory=args.pin_mem,
+        drop_last=False,  worker_init_fn=h5_worker_init_fn
         # collate_fn=pad_collate,
     )
     return (ds_tr, dl_tr), (ds_val, dl_val)

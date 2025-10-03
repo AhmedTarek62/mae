@@ -622,7 +622,7 @@ class MultimodalMAE(nn.Module):
             tok_masked, mae_mask, ids_restore = self.iq_random_masking(tok, token_mask, mask_ratio)
 
         # 6) Encoder PE (CLS + kept tokens)
-        cls_pe = self.iq_time_pos_embed[:, :1, :] # CLS time slot
+        cls_pe = self.iq_time_pos_embed[:, :1, :]  # CLS time slot
 
         # 7) Encode
         x_latent = self._encode(tok_masked, cls_pe, modality='iq')
