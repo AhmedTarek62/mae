@@ -10,7 +10,7 @@ from pathlib import Path
 import torch
 import torch.backends.cudnn as cudnn
 from torch.utils.tensorboard import SummaryWriter
-from torch.utils.data import DataLoader, RandomSampler, SequentialSampler, random_split
+from torch.utils.data import DataLoader, RandomSampler, SequentialSampler, random_split, Subset
 
 import torchvision
 import torchvision.transforms as transforms
@@ -39,6 +39,7 @@ def get_args_parser():
     p.add_argument('--accum_iter', default=2, type=int)
     p.add_argument('--batch_size_vis', default=256, type=int)
     p.add_argument('--batch_size_iq', default=256, type=int)
+    p.add_argument('--equal_exposure', action='store_true', default=False)
 
     # Model (keyword only)
     p.add_argument('--model', default='mae_vit_multi_micro', type=str,
@@ -96,6 +97,13 @@ def h5_worker_init_fn(_):
         ds._cur_path = None
 
 
+def fixed_subset(dataset, k, seed):
+    k = min(k, len(dataset))
+    g = torch.Generator().manual_seed(seed)
+    idx = torch.randperm(len(dataset), generator=g)[:k].tolist()
+    return Subset(dataset, idx)
+
+
 def build_spect_loader(args, img_size=224):
     transform_train = transforms.Compose([
         transforms.functional.pil_to_tensor,
@@ -115,11 +123,14 @@ def build_spect_loader(args, img_size=224):
     return ds, dl
 
 
-def build_iq_loaders(args):
+def build_iq_loaders(args, target_train_size=None):
     ds = IQDatasetH5Sharded(args.iq_path)
-    ds, _ = random_split(ds, [0.5, 0.5])
-    ds_tr, ds_val = random_split(ds, [0.7, 0.3])
-
+    if target_train_size is None:
+        ds, _ = random_split(ds, [0.5, 0.5])
+        ds_tr, ds_val = random_split(ds, [0.7, 0.3])
+    else:
+        ds_tr = fixed_subset(ds, target_train_size, seed=args.seed)
+        ds_val = ds_tr
     samp_tr = RandomSampler(ds_tr)
     samp_val = SequentialSampler(ds_val)
 
@@ -150,7 +161,10 @@ def main(args):
 
     # --- data ---
     ds_vis, dl_vis = build_spect_loader(args)
-    (ds_iq_tr, dl_iq_tr), (ds_iq_val, dl_iq_val) = build_iq_loaders(args)
+    (ds_iq_tr, dl_iq_tr), (ds_iq_val, dl_iq_val) = (
+        build_iq_loaders(args, target_train_size=len(ds_vis) if args.equal_exposure else None))
+    print(f"[IQ Dataset Size] Train: {len(ds_iq_tr)} Val: {len(ds_iq_val)} - "
+          f"[Vis Dataset Size] Train: {len(ds_vis)} Val: {len(ds_vis)}")
 
     os.makedirs(args.log_dir, exist_ok=True)
     log_writer = SummaryWriter(log_dir=args.log_dir)
