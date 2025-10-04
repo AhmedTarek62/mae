@@ -156,7 +156,7 @@ def main(args):
     print(f"seed is {args.seed}")
     torch.manual_seed(args.seed)
     np.random.seed(args.seed)
-
+    device = args.device
     cudnn.benchmark = True
 
     # datasets & loaders
