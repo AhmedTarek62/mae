@@ -150,9 +150,7 @@ def main(args):
     misc.init_distributed_mode(args)
 
     print('job dir:', os.path.dirname(os.path.realpath(__file__)))
-    print(str(args).replace(', ', ','))
-
-    device = torch.device(args.device)
+    print(str(args).replace(', ', ',\n'))
 
     # seeds
     print(f"seed is {args.seed}")

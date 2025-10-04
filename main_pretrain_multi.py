@@ -40,6 +40,8 @@ def get_args_parser():
     p.add_argument('--batch_size_vis', default=256, type=int)
     p.add_argument('--batch_size_iq', default=256, type=int)
     p.add_argument('--equal_exposure', action='store_true', default=False)
+    p.add_argument('--train_mode', choices=['multi', 'vis', 'iq'], default='multi',
+                   help="Train on both (multi), vision-only (vis), or IQ-only (iq)")
 
     # Model (keyword only)
     p.add_argument('--model', default='mae_vit_multi_micro', type=str,
@@ -104,6 +106,15 @@ def fixed_subset(dataset, k, seed):
     return Subset(dataset, idx)
 
 
+class EmptyDataLoader:
+    def __len__(self): return 0
+
+    def __iter__(self):
+        if False:  # never yields
+            yield None
+        return
+
+
 def build_spect_loader(args, img_size=224):
     transform_train = transforms.Compose([
         transforms.functional.pil_to_tensor,
@@ -114,42 +125,59 @@ def build_spect_loader(args, img_size=224):
         transforms.Normalize(mean=[0.451], std=[0.043]),
     ])
     ds = SpectrogramImages(args.spect_paths, transform=transform_train)
-    sampler = RandomSampler(ds)
-    dl = DataLoader(
-        ds, sampler=sampler, batch_size=args.batch_size_vis,
-        num_workers=args.num_workers, pin_memory=args.pin_mem,
-        drop_last=True,
-    )
-    return ds, dl
+    gen_split = torch.Generator().manual_seed(args.seed)
+    ds_tr, ds_val = random_split(ds, [0.8, 0.2], generator=gen_split)
+    gen_tr = torch.Generator().manual_seed(args.seed + 1)
+    sampler_tr = RandomSampler(ds_tr, generator=gen_tr)
+    sampler_val = SequentialSampler(ds_val)
+
+    common = dict(num_workers=args.num_workers, pin_memory=args.pin_mem, batch_size=args.batch_size_vis)
+    if args.num_workers == 0:
+        dl_tr = DataLoader(ds_tr, sampler=sampler_tr, drop_last=True, **common)
+        dl_val = DataLoader(ds_val, sampler=sampler_val, drop_last=False, **common)
+    else:
+        dl_tr = DataLoader(ds_tr, sampler=sampler_tr, persistent_workers=True, prefetch_factor=4, drop_last=True,
+                           **common)
+        dl_val = DataLoader(ds_val, sampler=sampler_val, persistent_workers=True, prefetch_factor=4, drop_last=False,
+                            **common)
+
+    return (ds_tr, dl_tr), (ds_val, dl_val)
 
 
 def build_iq_loaders(args, target_train_size=None):
     ds = IQDatasetH5Sharded(args.iq_path)
+
     if target_train_size is None:
-        ds, _ = random_split(ds, [0.5, 0.5])
-        ds_tr, ds_val = random_split(ds, [0.7, 0.3])
+        gen_a = torch.Generator().manual_seed(args.seed + 2)
+        gen_b = torch.Generator().manual_seed(args.seed + 3)
+        ds, _ = random_split(ds, [0.5, 0.5], generator=gen_a)
+        ds_tr, ds_val = random_split(ds, [0.7, 0.3], generator=gen_b)
     else:
-        ds_tr = fixed_subset(ds, target_train_size, seed=args.seed)
-        ds_val = ds_tr
-    samp_tr = RandomSampler(ds_tr)
+        # make a fixed subset then split 80/20 for proper validation
+        sub = fixed_subset(ds, target_train_size, seed=args.seed + 4)
+        gen_c = torch.Generator().manual_seed(args.seed + 5)
+        ds_tr, ds_val = random_split(sub, [0.8, 0.2], generator=gen_c)
+
+    gen_tr = torch.Generator().manual_seed(args.seed + 6)
+    samp_tr = RandomSampler(ds_tr, generator=gen_tr)
     samp_val = SequentialSampler(ds_val)
 
-    dl_tr = DataLoader(
-        ds_tr, sampler=samp_tr, batch_size=args.batch_size_iq,
-        num_workers=args.num_workers,  pin_memory=args.pin_mem,
-        drop_last=False, worker_init_fn=h5_worker_init_fn
-        # collate_fn=pad_collate,
-    )
-    dl_val = DataLoader(
-        ds_val, sampler=samp_val, batch_size=args.batch_size_iq,
-        num_workers=args.num_workers,  pin_memory=args.pin_mem,
-        drop_last=False,  worker_init_fn=h5_worker_init_fn
-        # collate_fn=pad_collate,
-    )
+    common = dict(num_workers=args.num_workers, pin_memory=args.pin_mem, worker_init_fn=h5_worker_init_fn,
+                  batch_size=args.batch_size_iq)
+    if args.num_workers == 0:
+        dl_tr = DataLoader(ds_tr, sampler=samp_tr, drop_last=True, **common)
+        dl_val = DataLoader(ds_val, sampler=samp_val, drop_last=False, **common)
+    else:
+        dl_tr = DataLoader(ds_tr, sampler=samp_tr, persistent_workers=True, prefetch_factor=4, drop_last=True,
+                           **common)
+        dl_val = DataLoader(ds_val, sampler=samp_val, persistent_workers=True, prefetch_factor=4, drop_last=False,
+                            **common)
     return (ds_tr, dl_tr), (ds_val, dl_val)
 
 
 def main(args):
+    cudnn.deterministic = True
+    cudnn.benchmark = False
     misc.init_distributed_mode(args)
     print('job dir:', os.path.dirname(os.path.realpath(__file__)))
     print(str(args).replace(', ', ',\n'))
@@ -157,14 +185,25 @@ def main(args):
     device = torch.device(args.device)
     torch.manual_seed(args.seed)
     np.random.seed(args.seed)
-    cudnn.benchmark = True
 
     # --- data ---
-    ds_vis, dl_vis = build_spect_loader(args)
-    (ds_iq_tr, dl_iq_tr), (ds_iq_val, dl_iq_val) = (
-        build_iq_loaders(args, target_train_size=len(ds_vis) if args.equal_exposure else None))
-    print(f"[IQ Dataset Size] Train: {len(ds_iq_tr)} Val: {len(ds_iq_val)} - "
-          f"[Vis Dataset Size] Train: {len(ds_vis)} Val: {len(ds_vis)}")
+    if args.train_mode in ('multi', 'vis'):
+        (ds_vis_tr, dl_vis_tr), (ds_vis_val, dl_vis_val) = build_spect_loader(args)
+    else:
+        ds_vis_tr, dl_vis_tr, ds_vis_val, dl_vis_val = None, EmptyDataLoader(), None, EmptyDataLoader()
+
+    if args.train_mode in ('multi', 'iq'):
+        (ds_iq_tr, dl_iq_tr), (ds_iq_val, dl_iq_val) = build_iq_loaders(
+            args, target_train_size=(len(ds_vis_tr) if (args.equal_exposure and ds_vis_tr is not None) else None)
+        )
+    else:
+        ds_iq_tr, dl_iq_tr, ds_iq_val, dl_iq_val = None, EmptyDataLoader(), None, EmptyDataLoader()
+
+    print(
+        f"[Mode={args.train_mode}] "
+        f"[IQ Train/Val: {0 if ds_iq_tr is None else len(ds_iq_tr)}/{0 if ds_iq_val is None else len(ds_iq_val)}] "
+        f"[Vis Train/Val: {0 if ds_vis_tr is None else len(ds_vis_tr)}/{0 if ds_vis_val is None else len(ds_vis_val)}]"
+    )
 
     os.makedirs(args.log_dir, exist_ok=True)
     log_writer = SummaryWriter(log_dir=args.log_dir)
@@ -180,13 +219,19 @@ def main(args):
     print("Model =", model_without_ddp)
 
     # --- optimizer & lr ---
-    eff_batch_size = (args.batch_size_vis + args.batch_size_iq) * args.accum_iter
+    if args.train_mode == 'multi':
+        eff_batch_size = (args.batch_size_vis + args.batch_size_iq) * args.accum_iter
+    elif args.train_mode == 'vis':
+        eff_batch_size = args.batch_size_vis * args.accum_iter
+    else:  # 'iq'
+        eff_batch_size = args.batch_size_iq * args.accum_iter
+
     if args.lr is None:
         args.lr = args.blr * eff_batch_size / 256
     print(f"base lr: {args.lr * 256 / eff_batch_size:.2e}")
     print(f"actual lr: {args.lr:.2e}")
     print(f"accumulate grad iterations: {args.accum_iter}")
-    print(f"effective batch size (sum): {eff_batch_size}")
+    print(f"effective batch size: {eff_batch_size}")
 
     param_groups = optim_factory.param_groups_weight_decay(model_without_ddp, args.weight_decay)
     optimizer = torch.optim.AdamW(param_groups, lr=args.lr, betas=(0.9, 0.95))
@@ -200,7 +245,7 @@ def main(args):
     for epoch in range(args.start_epoch, args.epochs):
         train_stats = train_one_epoch_multi(
             model=model,
-            loader_vis=dl_vis,
+            loader_vis=dl_vis_tr,
             loader_iq=dl_iq_tr,
             optimizer=optimizer,
             device=device,
@@ -213,19 +258,21 @@ def main(args):
             args=args,
         )
 
-        val_iq = evaluate_iq(dl_iq_val, model, device, mask_ratio=args.mask_ratio_iq)
-        val_vis = evaluate_vision(dl_vis, model, device, mask_ratio=args.mask_ratio_vis)
+        # --- eval ---
+        val_stats = {}
+        if len(dl_iq_val) > 0:
+            val_stats.update({f'val_iq_{k}': v for k, v in
+                              evaluate_iq(dl_iq_val, model, device, mask_ratio=args.mask_ratio_iq).items()})
+        if len(dl_vis_val) > 0:
+            val_stats.update({f'val_vis_{k}': v for k, v in
+                              evaluate_vision(dl_vis_val, model, device, mask_ratio=args.mask_ratio_vis).items()})
+
+        log_stats = {**{f'train_{k}': v for k, v in train_stats.items()}, **val_stats, 'epoch': epoch}
 
         if args.output_dir and (epoch % 10 == 0 or epoch + 1 == args.epochs):
             misc.save_model(args=args, model=model, model_without_ddp=model_without_ddp,
                             optimizer=optimizer, loss_scaler=loss_scaler, epoch=epoch)
 
-        log_stats = {
-            **{f'train_{k}': v for k, v in train_stats.items()},
-            **{f'val_iq_{k}': v for k, v in val_iq.items()},
-            **{f'val_vis_{k}': v for k, v in val_vis.items()},
-            'epoch': epoch
-        }
         if args.output_dir:
             if log_writer is not None:
                 log_writer.flush()
