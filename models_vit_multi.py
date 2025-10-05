@@ -358,7 +358,7 @@ def vit_multi_small(**kwargs):
     return ModalityAdapterViT(
         embed_dim=384, depth=8, num_heads=6, mlp_ratio=4.0,
         vis_img_size=224, vis_patch=16, vis_in_chans=1,
-        iq_segment_len=4096, iq_hop=4096, iq_max_tokens=256, iq_max_antennas=16, **kwargs
+        iq_segment_len=16, iq_hop=16, iq_max_tokens=256, iq_max_antennas=16, **kwargs
     )
 
 
@@ -367,7 +367,7 @@ def vit_multi_base(**kwargs):
     return ModalityAdapterViT(
         embed_dim=512, depth=12, num_heads=8, mlp_ratio=4.0,
         vis_img_size=224, vis_patch=16, vis_in_chans=1,
-        iq_segment_len=4096, iq_hop=4096, iq_max_tokens=256, iq_max_antennas=32, **kwargs
+        iq_segment_len=16, iq_hop=16, iq_max_tokens=256, iq_max_antennas=32, **kwargs
     )
 
 
@@ -376,5 +376,5 @@ def vit_multi_large(**kwargs):
     return ModalityAdapterViT(
         embed_dim=768, depth=12, num_heads=12, mlp_ratio=4.0,
         vis_img_size=224, vis_patch=16, vis_in_chans=1,
-        iq_segment_len=4096, iq_hop=4096, iq_max_tokens=256, iq_max_antennas=32, **kwargs
+        iq_segment_len=16, iq_hop=16, iq_max_tokens=256, iq_max_antennas=32, **kwargs
     )
