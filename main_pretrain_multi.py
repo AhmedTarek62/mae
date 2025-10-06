@@ -51,6 +51,7 @@ def get_args_parser():
     p.add_argument('--norm_pix_loss', action='store_true', default=False)
     p.add_argument('--norm_seg_loss', action='store_true', default=False)
     p.add_argument('--use_ant_mask', action='store_true', default=False)
+    p.add_argument('--separate_decoders', action='store_true', default=False)
 
     # Mask ratios (per modality)
     p.add_argument('--mask_ratio_vis', default=0.75, type=float)
@@ -214,6 +215,7 @@ def main(args):
         norm_pix_loss=args.norm_pix_loss,
         norm_seg_loss=args.norm_seg_loss,
         iq_use_ant_mask=args.use_ant_mask,
+        separate_decoders=args.separate_decoders
     ).to(device)
     model_without_ddp = model
     print("Model =", model_without_ddp)

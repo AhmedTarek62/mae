@@ -36,6 +36,7 @@ class MultimodalMAE(nn.Module):
         use_conditional_ln: bool = True,
         norm_pix_loss: bool = False,
         norm_seg_loss: bool = False,
+        separate_decoders: bool = False
     ):
         super().__init__()
 
@@ -49,16 +50,40 @@ class MultimodalMAE(nn.Module):
         ])
         self.norm = norm_layer(embed_dim)
 
+        self.separate_decoders = bool(separate_decoders)
+
         # --------------------------
-        # Shared decoder trunk
+        # Decoder trunk(s)
         # --------------------------
-        self.decoder_embed = nn.Linear(embed_dim, decoder_embed_dim, bias=True)
-        self.mask_token = nn.Parameter(torch.zeros(1, 1, decoder_embed_dim))
-        self.decoder_blocks = nn.ModuleList([
-            Block(decoder_embed_dim, decoder_num_heads, mlp_ratio, qkv_bias=True)
-            for _ in range(decoder_depth)
-        ])
-        self.decoder_norm = norm_layer(decoder_embed_dim)
+        if not self.separate_decoders:
+            # original shared decoder
+            self.decoder_embed = nn.Linear(embed_dim, decoder_embed_dim, bias=True)
+            self.mask_token = nn.Parameter(torch.zeros(1, 1, decoder_embed_dim))
+            self.decoder_blocks = nn.ModuleList(
+                [Block(decoder_embed_dim, decoder_num_heads, mlp_ratio, qkv_bias=True) for _ in range(decoder_depth)]
+            )
+            self.decoder_norm = norm_layer(decoder_embed_dim)
+        else:
+            # per-modality decoder parts
+            self.dec_embed = nn.ModuleDict({
+                'vision': nn.Linear(embed_dim, decoder_embed_dim, bias=True),
+                'iq':     nn.Linear(embed_dim, decoder_embed_dim, bias=True),
+            })
+            self.dec_mask_token = nn.ParameterDict({
+                'vision': nn.Parameter(torch.zeros(1, 1, decoder_embed_dim)),
+                'iq':     nn.Parameter(torch.zeros(1, 1, decoder_embed_dim)),
+            })
+
+            self.dec_blocks = nn.ModuleDict({
+                'vision': nn.ModuleList([Block(decoder_embed_dim, decoder_num_heads, mlp_ratio, qkv_bias=True)
+                                         for _ in range(decoder_depth)]),
+                'iq':     nn.ModuleList([Block(decoder_embed_dim, decoder_num_heads, mlp_ratio, qkv_bias=True)
+                                         for _ in range(decoder_depth)]),
+            })
+            self.dec_norm = nn.ModuleDict({
+                'vision': norm_layer(decoder_embed_dim),
+                'iq':     norm_layer(decoder_embed_dim),
+            })
 
         # --------------------------
         # Vision adapter & decoder head
@@ -173,9 +198,13 @@ class MultimodalMAE(nn.Module):
 
         # Embeddings
         torch.nn.init.normal_(self.cls_token, std=0.02)
-        torch.nn.init.normal_(self.mask_token, std=0.02)
         torch.nn.init.normal_(self.iq_ant_embed.weight, std=0.02)
         torch.nn.init.normal_(self.iq_dec_ant_embed.weight, std=0.02)
+        if not self.separate_decoders:
+            torch.nn.init.normal_(self.mask_token, std=0.02)
+        else:
+            for k in ('vision', 'iq'):
+                torch.nn.init.normal_(self.dec_mask_token[k], std=0.02)
 
         # Optional conditional LN params
         if getattr(self, "use_conditional_ln", False):
@@ -196,6 +225,13 @@ class MultimodalMAE(nn.Module):
         elif isinstance(m, nn.LayerNorm):
             nn.init.constant_(m.weight, 1.0)
             nn.init.constant_(m.bias, 0.0)
+
+    def _decoder_parts(self, modality: str):
+        """Return (embed, mask_token, blocks, norm) for the selected decoder."""
+        if not self.separate_decoders:
+            return self.decoder_embed, self.mask_token, self.decoder_blocks, self.decoder_norm
+        return (self.dec_embed[modality], self.dec_mask_token[modality],
+                self.dec_blocks[modality], self.dec_norm[modality])
 
     # ----------------------------
     # Vision helpers
@@ -459,19 +495,23 @@ class MultimodalMAE(nn.Module):
 
     def _decode_trunk(
             self,
+            modality: str,
             x_latent: torch.Tensor,  # (N, 1+L_keep, D)
             ids_restore: torch.Tensor,  # (N, L)
             pe_dec: torch.Tensor  # (1, 1+L, D_dec)
     ) -> torch.Tensor:
-        N, _, D = x_latent.shape
+        # fetch per-modality (or shared) decoder parts
+        dec_embed, mask_token, dec_blocks, dec_norm = self._decoder_parts(modality)
+
+        N = x_latent.size(0)
         L = ids_restore.size(1)
 
         # project to decoder dim
-        x = self.decoder_embed(x_latent)  # (N, 1+L_keep, D_dec)
+        x = dec_embed(x_latent)  # (N, 1+L_keep, D_dec)
 
         # append mask tokens to reach full length L (drop CLS for this part)
         need = L + 1 - x.size(1)
-        mask_tokens = self.mask_token.expand(N, need, -1)  # (N, need, D_dec)
+        mask_tokens = mask_token.expand(N, need, -1)  # (N, need, D_dec)
         x_full = torch.cat([x[:, 1:, :], mask_tokens], dim=1)  # (N, L, D_dec)
 
         # unshuffle to original order
@@ -480,9 +520,9 @@ class MultimodalMAE(nn.Module):
 
         # add decoder PE and run blocks
         x = x + pe_dec
-        for blk in self.decoder_blocks:
+        for blk in dec_blocks:
             x = blk(x)
-        x = self.decoder_norm(x)
+        x = dec_norm(x)
         return x
 
     # ============================
@@ -526,7 +566,7 @@ class MultimodalMAE(nn.Module):
         L = ids_restore.size(1)
         pe_dec = torch.cat([self.vis_dec_pos_embed[:, :1, :], self.vis_dec_pos_embed[:, 1:1 + L, :]], dim=1)
         # decode trunk
-        x_dec = self._decode_trunk(x_latent, ids_restore, pe_dec)  # (N, 1+L, D_dec)
+        x_dec = self._decode_trunk('vision', x_latent, ids_restore, pe_dec)  # (N, 1+L, D_dec)
         # predict tokens, drop CLS
         pred_tokens = self.vis_decoder_pred(x_dec[:, 1:, :])  # (N, L, PP*C)
         # loss on masked patches
@@ -634,7 +674,7 @@ class MultimodalMAE(nn.Module):
         pe_dec_full = torch.cat([pe_time_dec, pe_time_slice_d + pe_ant_slice_d], dim=1)  # (1, 1+L, D_dec)
 
         # 9) Decode trunk
-        x_dec = self._decode_trunk(x_latent, ids_restore, pe_dec_full)  # (N, 1+L, D_dec)
+        x_dec = self._decode_trunk('iq', x_latent, ids_restore, pe_dec_full)  # (N, 1+L, D_dec)
 
         # 10) Predict per-token (I,Q) segments, drop CLS
         pred_tokens = self.iq_decoder_pred(x_dec[:, 1:, :])  # (N, L, 2*M)
@@ -682,6 +722,7 @@ def mae_multi_micro(**kwargs):
         norm_pix_loss=kwargs.pop("norm_pix_loss", False),
         norm_seg_loss=kwargs.pop("norm_seg_loss", False),
         iq_use_ant_mask=kwargs.pop("iq_use_ant_mask", False),
+        separate_decoders=kwargs.pop("separate_decoders", False)
     )
 
 
@@ -698,6 +739,7 @@ def mae_multi_small(**kwargs):
         norm_pix_loss=kwargs.pop("norm_pix_loss", False),
         norm_seg_loss=kwargs.pop("norm_seg_loss", False),
         iq_use_ant_mask=kwargs.pop("iq_use_ant_mask", False),
+        separate_decoders=kwargs.pop("separate_decoders", False)
     )
 
 
@@ -714,6 +756,7 @@ def mae_multi_base(**kwargs):
         norm_pix_loss=kwargs.pop("norm_pix_loss", False),
         norm_seg_loss=kwargs.pop("norm_seg_loss", False),
         iq_use_ant_mask=kwargs.pop("iq_use_ant_mask", False),
+        separate_decoders=kwargs.pop("separate_decoders", False)
     )
 
 
@@ -730,6 +773,7 @@ def mae_multi_large(**kwargs):
         norm_pix_loss=kwargs.pop("norm_pix_loss", False),
         norm_seg_loss=kwargs.pop("norm_seg_loss", False),
         iq_use_ant_mask=kwargs.pop("iq_use_ant_mask", False),
+        separate_decoders=kwargs.pop("separate_decoders", False)
     )
 
 
