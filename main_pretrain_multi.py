@@ -195,7 +195,7 @@ def main(args):
 
     if args.train_mode in ('multi', 'iq'):
         (ds_iq_tr, dl_iq_tr), (ds_iq_val, dl_iq_val) = build_iq_loaders(
-            args, target_train_size=(len(ds_vis_tr) if (args.equal_exposure and ds_vis_tr is not None) else None)
+            args, target_train_size=(len(ds_vis_tr) + len(ds_vis_val) if args.equal_exposure else None)
         )
     else:
         ds_iq_tr, dl_iq_tr, ds_iq_val, dl_iq_val = None, EmptyDataLoader(), None, EmptyDataLoader()
