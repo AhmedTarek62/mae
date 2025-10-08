@@ -356,7 +356,7 @@ def vit_multi_micro(**kwargs):
 def vit_multi_small(**kwargs):
     """~20–30M params; good default."""
     return ModalityAdapterViT(
-        embed_dim=384, depth=8, num_heads=6, mlp_ratio=4.0,
+        embed_dim=256, depth=8, num_heads=8, mlp_ratio=4.0,
         vis_img_size=224, vis_patch=16, vis_in_chans=1,
         iq_segment_len=16, iq_hop=16, iq_max_tokens=256, iq_max_antennas=16, **kwargs
     )

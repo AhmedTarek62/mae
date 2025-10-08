@@ -65,22 +65,22 @@ class MultimodalMAE(nn.Module):
             self.decoder_norm = norm_layer(decoder_embed_dim)
         else:
             # per-modality decoder parts
-            self.dec_embed = nn.ModuleDict({
+            self.decoder_embed = nn.ModuleDict({
                 'vision': nn.Linear(embed_dim, decoder_embed_dim, bias=True),
                 'iq':     nn.Linear(embed_dim, decoder_embed_dim, bias=True),
             })
-            self.dec_mask_token = nn.ParameterDict({
+            self.decoder_mask_token = nn.ParameterDict({
                 'vision': nn.Parameter(torch.zeros(1, 1, decoder_embed_dim)),
                 'iq':     nn.Parameter(torch.zeros(1, 1, decoder_embed_dim)),
             })
 
-            self.dec_blocks = nn.ModuleDict({
+            self.decoder_blocks = nn.ModuleDict({
                 'vision': nn.ModuleList([Block(decoder_embed_dim, decoder_num_heads, mlp_ratio, qkv_bias=True)
                                          for _ in range(decoder_depth)]),
                 'iq':     nn.ModuleList([Block(decoder_embed_dim, decoder_num_heads, mlp_ratio, qkv_bias=True)
                                          for _ in range(decoder_depth)]),
             })
-            self.dec_norm = nn.ModuleDict({
+            self.decoder_norm = nn.ModuleDict({
                 'vision': norm_layer(decoder_embed_dim),
                 'iq':     norm_layer(decoder_embed_dim),
             })
@@ -204,7 +204,7 @@ class MultimodalMAE(nn.Module):
             torch.nn.init.normal_(self.mask_token, std=0.02)
         else:
             for k in ('vision', 'iq'):
-                torch.nn.init.normal_(self.dec_mask_token[k], std=0.02)
+                torch.nn.init.normal_(self.decoder_mask_token[k], std=0.02)
 
         # Optional conditional LN params
         if getattr(self, "use_conditional_ln", False):
@@ -230,8 +230,8 @@ class MultimodalMAE(nn.Module):
         """Return (embed, mask_token, blocks, norm) for the selected decoder."""
         if not self.separate_decoders:
             return self.decoder_embed, self.mask_token, self.decoder_blocks, self.decoder_norm
-        return (self.dec_embed[modality], self.dec_mask_token[modality],
-                self.dec_blocks[modality], self.dec_norm[modality])
+        return (self.decoder_embed[modality], self.decoder_mask_token[modality],
+                self.decoder_blocks[modality], self.decoder_norm[modality])
 
     # ----------------------------
     # Vision helpers
@@ -731,8 +731,8 @@ def mae_multi_small(**kwargs):
     ~20–30M params; good default.
     """
     return MultimodalMAE(
-        embed_dim=384, depth=8, num_heads=6, mlp_ratio=4.0,
-        decoder_embed_dim=256, decoder_depth=4, decoder_num_heads=8,
+        embed_dim=256, depth=8, num_heads=8, mlp_ratio=4.0,
+        decoder_embed_dim=128, decoder_depth=4, decoder_num_heads=16,
         vis_img_size=224, vis_patch=16, vis_in_chans=1,
         iq_segment_len=16, iq_hop=16, iq_max_tokens=256, iq_max_antennas=16,
         use_conditional_ln=True,
