@@ -221,7 +221,9 @@ def main(args):
     print("Model =", model_without_ddp)
     encoder_params = sum(p.numel() for p in model.blocks.parameters())
     decoder_params = sum(p.numel() for p in model.decoder_blocks.parameters())
-    print(f"[Encoder: {encoder_params / 1.e6:.2f}] [Decoder: {decoder_params / 1.e6:2f}] [Ratio: {encoder_params/decoder_params:2.f}]")
+    print(f"[Encoder: {encoder_params / 1.e6:.2f}] "
+          f"[Decoder: {decoder_params / 1.e6:2f}] "
+          f"[Ratio: {encoder_params / decoder_params:.2f}]")
 
     # --- optimizer & lr ---
     if args.train_mode == 'multi':
