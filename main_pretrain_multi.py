@@ -244,8 +244,11 @@ def main(args):
             config=cfg,
         )
         # set step metrics
-        wandb.define_metric("epoch")
-        wandb.define_metric("global_step")
+        wandb.define_metric("pretrain/epoch")
+        wandb.define_metric("pretrain/*", step_metric="pretrain/epoch")
+
+    if wandb is not None:
+        print(f"W&B → project={args.wandb_project} group={args.wandb_group} name={args.run_name}")
 
     # --- model from preset keyword ---
     # Pass only the common toggles; preset handles architecture specifics.
@@ -360,23 +363,24 @@ def main(args):
                 f.write(json.dumps(log_stats) + "\n")
 
         if wandb is not None:
-            payload = {'epoch': epoch}
-            payload.update({f"train/{k}": v for k, v in train_stats.items()})
-            payload.update(val_stats)
+            payload = {'pretrain/epoch': epoch}
+            payload.update({f"pretrain/train/{k}": v for k, v in train_stats.items()})
+            payload.update({f"pretrain/val_iq/{k.replace('val_iq_', '')}": v
+                            for k, v in val_stats.items() if k.startswith('val_iq_')})
+            payload.update({f"pretrain/val_vis/{k.replace('val_vis_', '')}": v
+                            for k, v in val_stats.items() if k.startswith('val_vis_')})
             wandb.log(payload)
 
         if args.full_probe_every_epochs and ((epoch + 1) % args.full_probe_every_epochs == 0):
             num_batches = max(1, args.full_probe_batches)
-            pairs = sample_pairs(dl_vis_tr if 'dl_vis_tr' in locals() else None,
-                                 dl_iq_tr if 'dl_iq_tr' in locals() else None,
-                                 K=num_batches)
+            pairs = sample_pairs(dl_vis_tr, dl_iq_tr, K=num_batches)
             rows = []
             for b_vis, b_iq in pairs:
                 r = probe_full_encoder(model, b_vis, b_iq, device, args.mask_ratio_vis, args.mask_ratio_iq)
                 if r:
                     rows.append(r)
             summary = summarize(rows)
-            log_summary(summary, epoch, log_writer=log_writer, wandb=wandb, prefix="probe_full")
+            log_summary(summary, epoch, log_writer=log_writer, wandb=wandb, prefix="pretrain/probe_full")
 
     total = time.time() - t0
     print('Training time', str(datetime.timedelta(seconds=int(total))))
