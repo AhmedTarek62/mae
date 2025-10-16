@@ -240,6 +240,7 @@ def main(args):
             entity=args.wandb_entity,
             group=args.wandb_group,
             mode=args.wandb_mode,
+            job_type="pretrain",
             name=args.run_name,
             config=cfg,
         )

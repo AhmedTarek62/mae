@@ -176,15 +176,14 @@ def main(args):
         import wandb as _wandb
         wandb = _wandb
         cfg = vars(args).copy()
-        protocol = "lora" if getattr(args, "lora", False) else "linear-probe"
-        run_name = args.run_name or f"{args.mode}/{protocol}"
-        group = args.wandb_group if args.wandb_group else f"finetune-{args.mode}"
+        protocol = "lora" if getattr(args, "lora", False) else "linprobe"
         wandb.init(
             project=args.wandb_project,
             entity=args.wandb_entity,
-            group=group,
+            group=args.wandb_group,
             mode=args.wandb_mode,
-            name=run_name,
+            job_type=f"finetune-{args.mode}-{protocol}",
+            name=args.run_name,
             config=cfg,
         )
         # set step metrics
