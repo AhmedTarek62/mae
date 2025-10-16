@@ -85,7 +85,7 @@ def get_args_parser():
     p.add_argument('--use_wandb', action='store_true', default=False)
     p.add_argument('--wandb_project', type=str, default='WavesFM')
     p.add_argument('--wandb_entity', type=str, default='waves-lab')  # optional
-    p.add_argument('--wandb_group', type=str, default=None)  # e.g., "vit-small-vs-sd"
+    p.add_argument('--wandb_group', type=str, default="pretrain")  # e.g., "vit-small-vs-sd"
     p.add_argument('--wandb_mode', type=str, default='online', choices=['online', 'offline', 'disabled'])
     p.add_argument('--run_name', type=str, default=None)  # optional readable name
     p.add_argument('--full_probe_every_epochs', type=int, default=0)
@@ -244,8 +244,12 @@ def main(args):
             config=cfg,
         )
         # set step metrics
-        wandb.define_metric("pretrain/epoch")
-        wandb.define_metric("pretrain/*", step_metric="pretrain/epoch")
+        wandb.define_metric("epoch")
+        wandb.define_metric("pretrain/*", step_metric="epoch")
+        wandb.define_metric("pretrain/train/*", step_metric="epoch")
+        wandb.define_metric("pretrain/val_iq/*", step_metric="epoch")
+        wandb.define_metric("pretrain/val_vis/*", step_metric="epoch")
+        wandb.define_metric("pretrain/probe_full/*", step_metric="epoch")
 
     if wandb is not None:
         print(f"W&B → project={args.wandb_project} group={args.wandb_group} name={args.run_name}")
@@ -363,7 +367,7 @@ def main(args):
                 f.write(json.dumps(log_stats) + "\n")
 
         if wandb is not None:
-            payload = {'pretrain/epoch': epoch}
+            payload = {'epoch': epoch}
             payload.update({f"pretrain/train/{k}": v for k, v in train_stats.items()})
             payload.update({f"pretrain/val_iq/{k.replace('val_iq_', '')}": v
                             for k, v in val_stats.items() if k.startswith('val_iq_')})

@@ -178,17 +178,20 @@ def main(args):
         cfg = vars(args).copy()
         protocol = "lora" if getattr(args, "lora", False) else "linear-probe"
         run_name = args.run_name or f"{args.mode}/{protocol}"
+        group = args.wandb_group if args.wandb_group else f"finetune-{args.mode}"
         wandb.init(
             project=args.wandb_project,
             entity=args.wandb_entity,
-            group=args.wandb_group,
+            group=group,
             mode=args.wandb_mode,
             name=run_name,
             config=cfg,
         )
         # set step metrics
-        wandb.define_metric("finetune/epoch")
-        wandb.define_metric("finetune/*", step_metric="finetune/epoch")
+        wandb.define_metric("epoch")
+        wandb.define_metric("finetune/*", step_metric="epoch")
+        wandb.define_metric("finetune/train/*", step_metric="epoch")
+        wandb.define_metric("finetune/val/*", step_metric="epoch")
 
     # datasets & loaders
     dataset_train, dataset_val = _build_datasets(args)
@@ -312,9 +315,9 @@ def main(args):
                 best_epoch = epoch
                 print(f"[BEST] epoch={best_epoch} {best_key}={best_metric:.4f}")
                 if wandb is not None and is_main:
-                    wandb.run.summary['finetune/best_epoch'] = int(best_epoch)
-                    wandb.run.summary['finetune/best_metric'] = float(best_metric)
-                    wandb.run.summary['finetune/best_metric_key'] = best_key
+                    wandb.run.summary['best_epoch'] = int(best_epoch)
+                    wandb.run.summary['best_metric'] = float(best_metric)
+                    wandb.run.summary['best_metric_key'] = best_key
 
         # classification vs regression logging
         if 'pca' in test_stats:  # classification
@@ -337,12 +340,14 @@ def main(args):
                      'epoch': epoch, 'n_parameters': n_parameters}
 
         if wandb is not None and is_main:
-            payload = {"finetune/epoch": epoch,
-                       "finetune/train/loss": train_stats.get("loss", 0.0)}
+            payload = {"epoch": epoch,
+                       "finetune/train/loss": train_stats.get("loss", 0.0),
+                       "finetune/lr": train_stats.get("lr")}
             for k in ("acc1", "acc3", "pca", "loss", "mae", "rmse"):
                 if k in test_stats:
                     payload[f"finetune/val/{k}"] = test_stats[k]
             wandb.log(payload)
+
         if args.output_dir:
             if log_writer is not None:
                 log_writer.flush()
@@ -353,9 +358,9 @@ def main(args):
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
     print('Training time', total_time_str)
     if wandb is not None and is_main:
-        wandb.run.summary['finetune/best_epoch'] = int(best_epoch)
-        wandb.run.summary['finetune/best_metric'] = float(best_metric)
-        wandb.run.summary['finetune/best_metric_key'] = 'pca' if track_pca else 'mae'
+        wandb.run.summary['best_epoch'] = int(best_epoch)
+        wandb.run.summary['best_metric'] = float(best_metric)
+        wandb.run.summary['best_metric_key'] = 'pca' if track_pca else 'mae'
         wandb.finish()
 
 
