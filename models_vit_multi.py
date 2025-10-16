@@ -314,6 +314,22 @@ class ModalityAdapterViT(nn.Module):
             for p in self.iq_segment_embed.parameters():
                 p.requires_grad = False
 
+    def freeze_encoder_lora(self):
+        # Freeze all params
+        for param in self.blocks.parameters():
+            param.requires_grad = False
+
+        # Unfreeze LoRA layers
+        for block in self.blocks:
+            for param in block.attn.qkv.lora_q.parameters():
+                param.requires_grad = True
+            for param in block.attn.qkv.lora_v.parameters():
+                param.requires_grad = True
+
+        # Unfreeze classifier layer
+        for param in self.head.parameters():
+            param.requires_grad = True
+
     def unfreeze_tokenizer(self):
         if self.modality == 'vision':
             for p in self.vis_patch_embed.parameters():

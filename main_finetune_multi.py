@@ -39,6 +39,8 @@ def get_args_parser():
     parser.add_argument('--frozen_blocks', type=int)
     parser.add_argument('--tanh', action='store_true', default=False)
     parser.add_argument('--use_conditional_ln', action='store_true', default=False)
+    parser.add_argument('--strict_probe', action='store_true', default=False,
+                        help='freeze tokenizer & condLN')
 
     # Optimizer parameters
     parser.add_argument('--clip_grad', type=float, default=None, metavar='NORM')
@@ -81,6 +83,14 @@ def get_args_parser():
     parser.add_argument('--pin_mem', action='store_true')
     parser.add_argument('--no_pin_mem', action='store_false', dest='pin_mem')
     parser.set_defaults(pin_mem=True)
+
+    # WandB parameters
+    parser.add_argument('--use_wandb', action='store_true', default=False)
+    parser.add_argument('--wandb_project', type=str, default='WavesFM')
+    parser.add_argument('--wandb_entity', type=str, default='waves-lab')  # optional
+    parser.add_argument('--wandb_group', type=str, default=None)  # e.g., "vit-small-vs-sd"
+    parser.add_argument('--wandb_mode', type=str, default='online', choices=['online', 'offline', 'disabled'])
+    parser.add_argument('--run_name', type=str, default=None)
 
     # distributed (kept)
     parser.add_argument('--world_size', default=1, type=int, help=argparse.SUPPRESS)
@@ -159,6 +169,27 @@ def main(args):
     device = args.device
     cudnn.benchmark = True
 
+    # --- wandb init (main process only)
+    wandb = None
+    is_main = misc.is_main_process()
+    if args.use_wandb and is_main:
+        import wandb as _wandb
+        wandb = _wandb
+        cfg = vars(args).copy()
+        protocol = "lora" if getattr(args, "lora", False) else "linear-probe"
+        run_name = args.run_name or f"{args.mode}/{protocol}"
+        wandb.init(
+            project=args.wandb_project,
+            entity=args.wandb_entity,
+            group=args.wandb_group,
+            mode=args.wandb_mode,
+            name=run_name,
+            config=cfg,
+        )
+        # set step metrics
+        wandb.define_metric("epoch")
+        wandb.define_metric("global_step")
+
     # datasets & loaders
     dataset_train, dataset_val = _build_datasets(args)
     sampler_train, sampler_val = _build_samplers(args, dataset_train, dataset_val)
@@ -213,8 +244,10 @@ def main(args):
     else:
         model.freeze_encoder()
 
-    model.unfreeze_tokenizer()
-    model.unfreeze_conditional_ln()
+    if not args.strict_probe:
+        model.unfreeze_tokenizer()
+        model.unfreeze_conditional_ln()
+
     model = model.to(device)
     model_without_ddp = model
 
@@ -238,10 +271,10 @@ def main(args):
 
     # criterion
     classification_modes = {'amc', 'rml', 'rfp', 'sensing', 'rfs'}
-    if args.smoothing > 0. and args.mode in classification_modes:
-        criterion = LabelSmoothingCrossEntropy(smoothing=args.smoothing)
-    elif args.mode == 'rfs':
+    if args.mode == 'rfs':
         criterion = torch.nn.CrossEntropyLoss(weight=dataset_train.class_weights.to(device))
+    elif args.smoothing > 0. and args.mode in classification_modes:
+        criterion = LabelSmoothingCrossEntropy(smoothing=args.smoothing)
     else:
         criterion = torch.nn.CrossEntropyLoss() if args.mode in classification_modes else torch.nn.MSELoss()
     print("criterion =", criterion)
@@ -288,6 +321,16 @@ def main(args):
         log_stats = {**{f'train_{k}': v for k, v in train_stats.items()},
                      **{f'test_{k}': v for k, v in test_stats.items()},
                      'epoch': epoch, 'n_parameters': n_parameters}
+
+        if wandb is not None and is_main:
+            wandb.log({"epoch": epoch, "train_loss": train_stats.get("loss", 0.0)})
+            for k in ("acc1", "acc3", "pca", "loss"):
+                if k in test_stats:
+                    wandb.log({f"val/{k}": test_stats[k]})
+            for k in ("mae", "rmse"):
+                if k in test_stats:
+                    wandb.log({f"val/{k}": test_stats[k]})
+
         if args.output_dir:
             if log_writer is not None:
                 log_writer.flush()
@@ -297,6 +340,8 @@ def main(args):
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
     print('Training time', total_time_str)
+    if wandb is not None and is_main:
+        wandb.finish()
 
 
 if __name__ == '__main__':
