@@ -74,3 +74,23 @@ def get_layer_id_for_vit(name, num_layers):
         return int(name.split('.')[1]) + 1
     else:
         return num_layers
+
+
+def build_wd_groups(named_params, lr, weight_decay, no_wd_names=()):
+    """Replicates timm.optim.optim_factory.param_groups_weight_decay logic
+       for a subset of (name, param) pairs, with a given LR."""
+    no_wd = set(no_wd_names)
+    decay, no_decay = [], []
+    for n, p in named_params:
+        if not p.requires_grad:
+            continue
+        if p.ndim <= 1 or n.endswith(".bias") or n in no_wd:
+            no_decay.append(p)
+        else:
+            decay.append(p)
+    groups = []
+    if no_decay:
+        groups.append({'params': no_decay, 'weight_decay': 0.0, 'lr': lr})
+    if decay:
+        groups.append({'params': decay, 'weight_decay': weight_decay, 'lr': lr})
+    return groups

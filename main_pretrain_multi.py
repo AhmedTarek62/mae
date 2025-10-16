@@ -1,4 +1,3 @@
-# main_pretrain_multi.py
 import argparse
 import datetime
 import json
@@ -19,6 +18,9 @@ import timm.optim.optim_factory as optim_factory
 
 import util.misc as misc
 from util.misc import NativeScalerWithGradNormCount as NativeScaler
+from util.lr_decay import build_wd_groups
+
+from util.grad_probe import sample_pairs, summarize, log_summary, probe_full_encoder
 
 # datasets
 from dataset_classes.spectrogram_images import SpectrogramImages
@@ -64,12 +66,30 @@ def get_args_parser():
     p.add_argument('--min_lr', type=float, default=0.)
     p.add_argument('--warmup_epochs', type=int, default=0)
 
+    # Differential LR (optional)
+    p.add_argument('--lr_diff', action='store_true', default=False,
+                   help='Use different LR for encoder vs. decoders/adapters')
+    p.add_argument('--lr_enc_scale', type=float, default=0.2,
+                   help='Encoder LR = base LR * lr_enc_scale when --lr_diff')
+    p.add_argument('--lr_dec_scale', type=float, default=1.0,
+                   help='Decoder LR = base LR * lr_dec_scale when --lr_diff')
+
     # Data paths
     p.add_argument('--spect_paths',
                    default=['../datasets/spectrogram_dataset', '../datasets/spectrogram_iqengine_dataset'],
                    type=str, nargs='+',
                    help='List of spectrogram roots')
     p.add_argument('--iq_path', default='../datasets/train_iq', type=str)
+
+    # WandB args
+    p.add_argument('--use_wandb', action='store_true', default=False)
+    p.add_argument('--wandb_project', type=str, default='WavesFM')
+    p.add_argument('--wandb_entity', type=str, default='waves-lab')  # optional
+    p.add_argument('--wandb_group', type=str, default=None)  # e.g., "vit-small-vs-sd"
+    p.add_argument('--wandb_mode', type=str, default='online', choices=['online', 'offline', 'disabled'])
+    p.add_argument('--run_name', type=str, default=None)  # optional readable name
+    p.add_argument('--full_probe_every_epochs', type=int, default=0)
+    p.add_argument('--full_probe_batches', type=int, default=1)
 
     # Logging / env
     p.add_argument('--output_dir', default='./output_dir_multi')
@@ -209,6 +229,24 @@ def main(args):
     os.makedirs(args.log_dir, exist_ok=True)
     log_writer = SummaryWriter(log_dir=args.log_dir)
 
+    # --- wandb init (main process only)
+    wandb = None
+    if args.use_wandb and misc.is_main_process():
+        import wandb as _wandb
+        wandb = _wandb
+        cfg = vars(args).copy()
+        wandb.init(
+            project=args.wandb_project,
+            entity=args.wandb_entity,
+            group=args.wandb_group,
+            mode=args.wandb_mode,
+            name=args.run_name,
+            config=cfg,
+        )
+        # set step metrics
+        wandb.define_metric("epoch")
+        wandb.define_metric("global_step")
+
     # --- model from preset keyword ---
     # Pass only the common toggles; preset handles architecture specifics.
     model = models_multimodal_mae.__dict__[args.model](
@@ -240,8 +278,43 @@ def main(args):
     print(f"accumulate grad iterations: {args.accum_iter}")
     print(f"effective batch size: {eff_batch_size}")
 
-    param_groups = optim_factory.param_groups_weight_decay(model_without_ddp, args.weight_decay)
-    optimizer = torch.optim.AdamW(param_groups, lr=args.lr, betas=(0.9, 0.95))
+    if not args.lr_diff:
+        param_groups = optim_factory.param_groups_weight_decay(model_without_ddp, args.weight_decay)
+        optimizer = torch.optim.AdamW(param_groups, lr=args.lr, betas=(0.9, 0.95))
+    else:
+        # ---- Differential LR param groups ----
+        enc_named, dec_named, rest_named = [], [], []
+        for n, p in model_without_ddp.named_parameters():
+            if not p.requires_grad:
+                continue
+            lname = n.lower()
+            if 'decoder' in lname:
+                dec_named.append((n, p))
+            elif ('encoder' in lname) or ('blocks' in lname):
+                enc_named.append((n, p))
+            else:
+                rest_named.append((n, p))  # any leftovers
+
+        lr_enc = args.lr * args.lr_enc_scale
+        lr_dec = args.lr * args.lr_dec_scale
+
+        groups = []
+        groups += build_wd_groups(enc_named, lr_enc, args.weight_decay)
+        groups += build_wd_groups(dec_named, lr_dec, args.weight_decay)
+        # put leftovers with decoder LR by default
+        groups += build_wd_groups(rest_named, lr_dec, args.weight_decay)
+
+        optimizer = torch.optim.AdamW(groups, betas=(0.9, 0.95))
+
+        # print counts & LRs
+        def _cnt(named):
+            return sum(p.numel() for _, p in named)
+
+        print("[LR-diff] "
+              f"enc lr={lr_enc:.2e} (n={_cnt(enc_named)}) | "
+              f"dec lr={lr_dec:.2e} (n={_cnt(dec_named)}) | "
+              f"rest n={_cnt(rest_named)}")
+
     loss_scaler = NativeScaler()
 
     misc.load_model(args=args, model_without_ddp=model_without_ddp,
@@ -286,8 +359,29 @@ def main(args):
             with open(os.path.join(args.output_dir, "log.txt"), "a", encoding="utf-8") as f:
                 f.write(json.dumps(log_stats) + "\n")
 
+        if wandb is not None:
+            payload = {'epoch': epoch}
+            payload.update({f"train/{k}": v for k, v in train_stats.items()})
+            payload.update(val_stats)
+            wandb.log(payload)
+
+        if args.full_probe_every_epochs and ((epoch + 1) % args.full_probe_every_epochs == 0):
+            num_batches = max(1, args.full_probe_batches)
+            pairs = sample_pairs(dl_vis_tr if 'dl_vis_tr' in locals() else None,
+                                 dl_iq_tr if 'dl_iq_tr' in locals() else None,
+                                 K=num_batches)
+            rows = []
+            for b_vis, b_iq in pairs:
+                r = probe_full_encoder(model, b_vis, b_iq, device, args.mask_ratio_vis, args.mask_ratio_iq)
+                if r:
+                    rows.append(r)
+            summary = summarize(rows)
+            log_summary(summary, epoch, log_writer=log_writer, wandb=wandb, prefix="probe_full")
+
     total = time.time() - t0
     print('Training time', str(datetime.timedelta(seconds=int(total))))
+    if wandb is not None:
+        wandb.finish()
 
 
 if __name__ == '__main__':
