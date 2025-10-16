@@ -104,14 +104,18 @@ def get_args_parser():
 def _build_datasets(args):
     assert args.mode in ('aoa', 'amc', 'rml', 'rfp', 'pos', 'sensing', 'rfs')
     if args.mode in ('amc', 'aoa'):
-        _, dataset = random_split(IQDatasetH5Sharded(args.data_path, mode=args.mode), [0.5, 0.5])
-        dataset_train, dataset_val = random_split(dataset, [0.7, 0.3])
+        gen_a = torch.Generator().manual_seed(args.seed + 2)
+        gen_b = torch.Generator().manual_seed(args.seed + 3)
+        _, dataset = random_split(IQDatasetH5Sharded(args.data_path, mode=args.mode), [0.5, 0.5], generator=gen_a)
+        dataset_train, dataset_val = random_split(dataset, [0.7, 0.3], generator=gen_b)
     elif args.mode == 'rml':
+        gen = torch.Generator().manual_seed(args.seed + 4)
         dataset = RML(args.data_path, version="2022")
-        dataset_train, dataset_val = random_split(dataset, [0.7, 0.3])
+        dataset_train, dataset_val = random_split(dataset, [0.7, 0.3], generator=gen)
     elif args.mode == 'rfp':
+        gen = torch.Generator().manual_seed(args.seed + 5)
         dataset = RFPrintDataset(args.data_path)
-        dataset_train, dataset_val = random_split(dataset, [0.7, 0.3])
+        dataset_train, dataset_val = random_split(dataset, [0.7, 0.3], generator=gen)
     elif args.mode == 'pos':
         dataset_train = Positioning5G(Path(os.path.join(args.data_path, f'outdoor/train')))
         dataset_val = Positioning5G(Path(os.path.join(args.data_path, f'outdoor/test')))
@@ -127,11 +131,12 @@ def _build_datasets(args):
 
 
 def _build_samplers(args, dataset_train, dataset_val):
+    gen_s = torch.Generator().manual_seed(args.seed + 100)
     if args.mode == 'rml':
-        sampler_train = make_snr_sampler(dataset_train, policy='gaussian')
+        sampler_train = make_snr_sampler(dataset_train, policy='gaussian', generator=gen_s)
         sampler_val = SequentialSampler(dataset_val)
     else:
-        sampler_train = RandomSampler(dataset_train)
+        sampler_train = RandomSampler(dataset_train, generator=gen_s)
         sampler_val = SequentialSampler(dataset_val)
     return sampler_train, sampler_val
 

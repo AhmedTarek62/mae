@@ -8,7 +8,7 @@ from torchvision.transforms import Normalize, Compose, Resize, InterpolationMode
 class RadioSignal(Dataset):
     def __init__(self, data_path, resize=True):
         self.data_path = data_path
-        self.samples = os.listdir(data_path)  # Cache the file names
+        self.samples = tuple(sorted(os.listdir(data_path)))  # Cache the file names
         self.labels = ['ads-b', 'airband', 'ais', 'automatic-picture-transmission', 'bluetooth', 'cellular',
                        'digital-audio-broadcasting', 'digital-speech-decoder', 'fm', 'lora', 'morse', 'on-off-keying',
                        'packet', 'pocsag', 'Radioteletype', 'remote-keyless-entry', 'RS41-Radiosonde', 'sstv', 'vor',

@@ -95,7 +95,8 @@ def make_snr_sampler(dataset,
                      temperature: float = 1.0,
                      normalize: bool = True,
                      num_samples: int | None = None,
-                     replacement: bool = True) -> WeightedRandomSampler:
+                     replacement: bool = True,
+                     generator: torch.Generator) -> WeightedRandomSampler:
     """
     Subset-aware: works with RML or any Subset(RML) (even nested).
     """
@@ -141,4 +142,5 @@ def make_snr_sampler(dataset,
 
     return WeightedRandomSampler(weights=weights_tensor,
                                  num_samples=num_samples,
-                                 replacement=replacement)
+                                 replacement=replacement,
+                                 generator=generator)

@@ -38,7 +38,7 @@ class Positioning5G(Dataset):
         self.pretrain = pretrain
 
         # Get list of all `.h5` files for the specified scene
-        self.data_files = [os.path.join(datapath, filename) for filename in os.listdir(datapath)]
+        self.data_files = tuple(sorted([os.path.join(datapath, filename) for filename in os.listdir(datapath)]))
         self.num_samples = len(self.data_files)
         self.augment_transforms = augment_transforms
 

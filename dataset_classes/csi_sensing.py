@@ -12,7 +12,7 @@ import numpy as np
 class CSISensingDataset(Dataset):
     def __init__(self, root_dir, img_size=(224, 224), augment_transforms=None, downsampled=False):
         self.root_dir = root_dir
-        self.file_list = os.listdir(Path(root_dir))
+        self.file_list = tuple(sorted(os.listdir(Path(root_dir))))
         self.img_size = img_size
         self.labels = ['run', 'walk', 'fall', 'box', 'circle', 'clean']
         self.downsampled = downsampled
