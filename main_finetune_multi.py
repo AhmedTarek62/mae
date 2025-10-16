@@ -240,6 +240,8 @@ def main(args):
     classification_modes = {'amc', 'rml', 'rfp', 'sensing', 'rfs'}
     if args.smoothing > 0. and args.mode in classification_modes:
         criterion = LabelSmoothingCrossEntropy(smoothing=args.smoothing)
+    elif args.mode == 'rfs':
+        criterion = torch.nn.CrossEntropyLoss(weight=dataset_train.class_weights.to(device))
     else:
         criterion = torch.nn.CrossEntropyLoss() if args.mode in classification_modes else torch.nn.MSELoss()
     print("criterion =", criterion)
