@@ -59,7 +59,7 @@ def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
         targets = targets.to(device, non_blocking=True)
         time_mask = None if time_mask is None else time_mask.to(device, non_blocking=True)
 
-        with torch.cuda.amp.autocast():
+        with torch.amp.autocast("cuda"):
             # Our fine-tuner accepts (x, time_mask|None)
             outputs = model(samples, time_mask)
             loss = criterion(outputs, targets)
@@ -124,7 +124,7 @@ def evaluate(data_loader: Iterable, model: torch.nn.Module, criterion: torch.nn.
         targets = targets.to(device, non_blocking=True)
         time_mask = None if time_mask is None else time_mask.to(device, non_blocking=True)
 
-        with torch.cuda.amp.autocast():
+        with torch.amp.autocast("cuda"):
             outputs = model(samples, time_mask)
             loss = criterion(outputs, targets)
 

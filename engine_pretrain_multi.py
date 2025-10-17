@@ -6,6 +6,7 @@ import torch
 
 import util.misc as misc
 import util.lr_sched as lr_sched
+from util.pc_grad import shared_encoder_params, decoder_adapter_params, PCGradPairBuffer, assign_grads
 
 
 class RoundRobin:
@@ -89,6 +90,15 @@ def train_one_epoch_multi(model: torch.nn.Module,
     rr = RoundRobin(loader_vis, loader_iq)
     total_steps = len(rr)
 
+    use_pcgrad = args.use_pcgrad
+    if use_pcgrad:
+        assert accum_iter == 2, "PCGrad path assumes accum_iter=2 with round-robin."
+        enc_params = shared_encoder_params(model)
+        dec_params = decoder_adapter_params(model)
+        buf = PCGradPairBuffer(enc_params, dec_params)
+    else:
+        enc_params, dec_params, buf = None, None, None
+
     step_count = 0
 
     for data_iter_step, (modality, batch) in enumerate(
@@ -111,11 +121,11 @@ def train_one_epoch_multi(model: torch.nn.Module,
             x_pad = x_pad.to(device, non_blocking=True)
             time_mask = time_mask.to(device, non_blocking=True)
 
-        # per-iteration LR schedule (align with your engines)
+        # per-iteration LR schedule
         if data_iter_step % accum_iter == 0:
             lr_sched.adjust_learning_rate(optimizer, data_iter_step / total_steps + epoch, args)
 
-        with torch.cuda.amp.autocast():
+        with torch.amp.autocast("cuda"):
             if modality == "vision":
                 loss, _, _, _ = model.forward('vision', imgs, mask_ratio=mask_ratio_vis)
             else:
@@ -126,11 +136,31 @@ def train_one_epoch_multi(model: torch.nn.Module,
             print(f"Loss is {loss_value}, stopping training")
             sys.exit(1)
 
-        loss = loss / accum_iter
-        loss_scaler(loss, optimizer, parameters=model.parameters(),
-                    update_grad=((data_iter_step + 1) % accum_iter == 0))
-        if (data_iter_step + 1) % accum_iter == 0:
-            optimizer.zero_grad()
+        if use_pcgrad:
+            # collect grads for this step (no backward/step yet)
+            buf.add(modality, loss)
+            if buf.ready():
+                enc_g, dec_g, did_proj, pre_cos = buf.flush()
+
+                # write grads to .grad (encoder gets projected avg, decoders the sum)
+                assign_grads(enc_params, enc_g, accumulate=False)
+                assign_grads(dec_params, dec_g, accumulate=False)
+
+                # optional: clip
+                if args.clip_grad is not None:
+                    torch.nn.utils.clip_grad_norm_(
+                        [p for p in model.parameters() if p.grad is not None],
+                        max_norm=args.clip_grad
+                    )
+
+                optimizer.step()
+                optimizer.zero_grad()
+        else:
+            loss = loss / accum_iter
+            loss_scaler(loss, optimizer, parameters=model.parameters(),
+                        update_grad=((data_iter_step + 1) % accum_iter == 0))
+            if (data_iter_step + 1) % accum_iter == 0:
+                optimizer.zero_grad()
 
         torch.cuda.synchronize()
         metric_logger.update(loss=loss_value)
@@ -169,7 +199,7 @@ def evaluate_vision(data_loader: Iterable, model: torch.nn.Module,
     for imgs, _ in metric_logger.log_every(data_loader, 10, header):
         imgs = imgs.to(device, non_blocking=True)
 
-        with torch.cuda.amp.autocast():
+        with torch.amp.autocast("cuda"):
             # forward returns: loss, pred_tokens, mae_mask, extras
             loss, pred, mae_mask, _ = model.forward('vision', imgs, mask_ratio=mask_ratio)
 
@@ -214,7 +244,7 @@ def evaluate_iq(data_loader: Iterable, model: torch.nn.Module,
         x_pad = x_pad.to(device, non_blocking=True)
         time_mask = time_mask.to(device, non_blocking=True)
 
-        with torch.cuda.amp.autocast():
+        with torch.amp.autocast("cuda"):
             loss, pred, mae_mask, extras = model.forward('iq', x_pad, mask_ratio=mask_ratio, time_mask=time_mask)
 
         token_mask = extras["token_mask"]

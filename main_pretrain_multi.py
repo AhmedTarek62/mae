@@ -44,6 +44,10 @@ def get_args_parser():
     p.add_argument('--equal_exposure', action='store_true', default=False)
     p.add_argument('--train_mode', choices=['multi', 'vis', 'iq'], default='multi',
                    help="Train on both (multi), vision-only (vis), or IQ-only (iq)")
+    p.add_argument('--use_pcgrad', action='store_true', default=False,
+                        help='PCGrad on shared encoder (assumes 2-task round-robin)')
+    p.add_argument('--clip_grad', type=float, default=None,
+                   help='max global grad norm (None to disable)')
 
     # Model (keyword only)
     p.add_argument('--model', default='mae_vit_multi_micro', type=str,
@@ -296,9 +300,11 @@ def main(args):
             if not p.requires_grad:
                 continue
             lname = n.lower()
-            if 'decoder' in lname:
+            is_enc = lname.startswith("encoder") or lname.startswith("blocks") or lname.startswith("norm")
+            is_dec = lname.startswith("decoder")
+            if is_dec:
                 dec_named.append((n, p))
-            elif ('encoder' in lname) or ('blocks' in lname):
+            elif is_enc:
                 enc_named.append((n, p))
             else:
                 rest_named.append((n, p))  # any leftovers
