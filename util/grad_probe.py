@@ -93,7 +93,7 @@ def probe_full_encoder(model, batch_vis, batch_iq, device, mr_vis, mr_iq):
 
     was_training = model.training
     model.eval()
-    with torch.cuda.amp.autocast(enabled=False):
+    with torch.amp.autocast("cuda", enabled=False):
         out_vis = model('vision', bv, mask_ratio=mr_vis)
         L_vis = out_vis[0] if isinstance(out_vis, (list, tuple)) else out_vis
         time_mask = torch.ones((bi.shape[0], bi.shape[-1]), device=bi.device, dtype=torch.bool)
@@ -110,10 +110,10 @@ def probe_full_encoder(model, batch_vis, batch_iq, device, mr_vis, mr_iq):
         dot = torch.zeros((), device=device)
         for gv, gi in zip(Gv, Gi):
             if gv is not None:
-                gv = gv.float();
+                gv = gv.float()
                 gv2 += (gv * gv).sum()
             if gi is not None:
-                gi = gi.float();
+                gi = gi.float()
                 gi2 += (gi * gi).sum()
             if gv is not None and gi is not None:
                 dot += (gv * gi).sum()
