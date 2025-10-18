@@ -250,7 +250,6 @@ def main(args):
         )
         # set step metrics
         wandb.define_metric("epoch")
-        wandb.define_metric("pretrain/*", step_metric="epoch")
         wandb.define_metric("pretrain/train/*", step_metric="epoch")
         wandb.define_metric("pretrain/val_iq/*", step_metric="epoch")
         wandb.define_metric("pretrain/val_vis/*", step_metric="epoch")
