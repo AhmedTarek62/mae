@@ -6,6 +6,15 @@ from typing import List, Optional, Dict, Tuple
 import torch
 
 
+# ----- grad norm -----
+def grad_norm(params):
+    s = 0.0
+    for p in params:
+        if p.grad is not None:
+            s += float(p.grad.detach().float().pow(2).sum())
+    return s ** 0.5
+
+
 # -------- param selection --------
 def shared_encoder_params(model) -> List[torch.nn.Parameter]:
     """Trainable parameters that belong to the shared encoder."""
@@ -72,6 +81,7 @@ def assign_grads(params: List[torch.nn.Parameter],
     for p, g in zip(params, grads):
         if g is None:
             continue
+        g = g.detach().to(p.dtype)
         if (p.grad is None) or (not accumulate):
             p.grad = g.detach().clone()
         else:
@@ -147,7 +157,7 @@ class PCGradPairBuffer:
 
     def flush(self) -> Tuple[List[Optional[torch.Tensor]], List[Optional[torch.Tensor]], bool, float]:
         """
-        Returns (encoder_grads_projected_avg, decoder_grads_sum, did_any_projection, preproj_cosine).
+        Returns (encoder_grads_projected_avg, decoder_grads_avg, did_any_projection, preproj_cosine).
         Resets the buffer for the next pair.
         """
         ge = self.store["vision"]["enc"]
@@ -170,20 +180,20 @@ class PCGradPairBuffer:
             else:
                 enc_avg.append(0.5 * (gv + gi))
 
-        # sum decoder grads
+        # average decoder grads
         gd_v = self.store["vision"]["dec"]
         gd_i = self.store["iq"]["dec"]
-        dec_sum = []
+        dec_avg = []
         for gv, gi in zip(gd_v, gd_i):
             if gv is None and gi is None:
-                dec_sum.append(None)
+                dec_avg.append(None)
             elif gv is None:
-                dec_sum.append(gi)
+                dec_avg.append(0.5 * gi)
             elif gi is None:
-                dec_sum.append(gv)
+                dec_avg.append(0.5 * gv)
             else:
-                dec_sum.append(gv + gi)
+                dec_avg.append(0.5 * (gv + gi))
 
         # reset for the next pair
         self.reset()
-        return enc_avg, dec_sum, did_project, pre_cos
+        return enc_avg, dec_avg, did_project, pre_cos

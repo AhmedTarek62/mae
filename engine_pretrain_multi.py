@@ -6,7 +6,7 @@ import torch
 
 import util.misc as misc
 import util.lr_sched as lr_sched
-from util.pc_grad import shared_encoder_params, decoder_adapter_params, PCGradPairBuffer, assign_grads
+from util.pc_grad import shared_encoder_params, decoder_adapter_params, PCGradPairBuffer, assign_grads, grad_norm
 
 
 class RoundRobin:
@@ -79,6 +79,11 @@ def train_one_epoch_multi(model: torch.nn.Module,
     metric_logger = misc.MetricLogger(delimiter="  ")
     metric_logger.add_meter('lr', misc.SmoothedValue(window_size=1, fmt='{value:.6f}'))
 
+    wandb = None
+    if args.use_wandb:
+        import wandb as _wandb
+        wandb = _wandb
+
     header = f'Epoch: [{epoch}]'
     print_freq = 20
 
@@ -100,7 +105,8 @@ def train_one_epoch_multi(model: torch.nn.Module,
         enc_params, dec_params, buf = None, None, None
 
     step_count = 0
-
+    update_steps = 0
+    updates_per_epoch = len(rr) // accum_iter
     for data_iter_step, (modality, batch) in enumerate(
             metric_logger.log_every(rr, print_freq, header)):
 
@@ -146,15 +152,34 @@ def train_one_epoch_multi(model: torch.nn.Module,
                 assign_grads(enc_params, enc_g, accumulate=False)
                 assign_grads(dec_params, dec_g, accumulate=False)
 
+                total_pre = grad_norm(list(model.parameters()))
+                enc_pre = grad_norm(enc_params)
+                dec_pre = grad_norm(dec_params)
+
+                global_step = epoch * updates_per_epoch + update_steps
+                if wandb is not None and misc.is_main_process():
+                    wandb.log({
+                        "pretrain/grad/total_preclip": total_pre,
+                        "pretrain/grad/enc_preclip": enc_pre,
+                        "pretrain/grad/dec_preclip": dec_pre,
+                        "pretrain/pcg/pre_cos": pre_cos,
+                        "pretrain/pcg/did_proj": int(did_proj)},
+                        step=global_step)
+
                 # optional: clip
                 if args.clip_grad is not None:
                     torch.nn.utils.clip_grad_norm_(
                         [p for p in model.parameters() if p.grad is not None],
                         max_norm=args.clip_grad
                     )
+                    if wandb is not None and misc.is_main_process():
+                        wandb.log({
+                            "pretrain/grad/total_postclip": grad_norm(list(model.parameters()))
+                        }, step=global_step)
 
                 optimizer.step()
                 optimizer.zero_grad()
+                update_steps += 1
         else:
             loss = loss / accum_iter
             loss_scaler(loss, optimizer, parameters=model.parameters(),

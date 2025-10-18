@@ -291,8 +291,7 @@ def main(args):
     print(f"effective batch size: {eff_batch_size}")
 
     if not args.lr_diff:
-        param_groups = optim_factory.param_groups_weight_decay(model_without_ddp, args.weight_decay)
-        optimizer = torch.optim.AdamW(param_groups, lr=args.lr, betas=(0.9, 0.95))
+        groups = optim_factory.param_groups_weight_decay(model_without_ddp, args.weight_decay)
     else:
         # ---- Differential LR param groups ----
         enc_named, dec_named, rest_named = [], [], []
@@ -318,8 +317,6 @@ def main(args):
         # put leftovers with decoder LR by default
         groups += build_wd_groups(rest_named, lr_dec, args.weight_decay)
 
-        optimizer = torch.optim.AdamW(groups, betas=(0.9, 0.95))
-
         # print counts & LRs
         def _cnt(named):
             return sum(p.numel() for _, p in named)
@@ -329,6 +326,7 @@ def main(args):
               f"dec lr={lr_dec:.2e} (n={_cnt(dec_named)}) | "
               f"rest n={_cnt(rest_named)}")
 
+    optimizer = torch.optim.AdamW(groups, lr=args.lr, betas=(0.9, 0.95))
     loss_scaler = NativeScaler()
 
     misc.load_model(args=args, model_without_ddp=model_without_ddp,
